@@ -98,13 +98,11 @@ if __name__ == "__main__":
 
     #Relative Strength Index (RSI)
     RSI = calculate_rsi(stock_price,10)
-    print(RSI[0:12])
-    RSI_1 = ta.rsi(close=close_price, length=10)
-    print(RSI_1[0:12])
+    # RSI = ta.rsi(close=close_price, length=10)
 
 
+    plt.plot(RSI)
     plt.show()
-    # print(MOM)
 
     # |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10 |
 

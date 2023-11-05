@@ -1,0 +1,6 @@
+LICENSE.md
+setup.py
+src/pydybm.egg-info/PKG-INFO
+src/pydybm.egg-info/SOURCES.txt
+src/pydybm.egg-info/dependency_links.txt
+src/pydybm.egg-info/top_level.txt
