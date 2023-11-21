@@ -144,9 +144,9 @@ class GaussianDyBM(VectorRegressionWithVariance):
         if insert_to_etrace not in ["w_delay", "wo_delay"]:
             raise ValueError("insert_to_etrace should be either `w_delay` "
                              "or `wo_delay`.")
-        self.n_etrace = torch.tensor(len(decay_rates),requires_grad=True)
-        self.decay_rates = torch.tensor(amath.array(decay_rates).reshape((self.n_etrace, 1)),requires_grad=True)
-        order = torch.tensor(delay - 1,requires_grad=True)
+        self.n_etrace = len(decay_rates)
+        self.decay_rates = amath.array(decay_rates).reshape((self.n_etrace, 1))
+        order = delay - 1
         VectorRegressionWithVariance.__init__(self, in_dim, out_dim, order,
                                               SGD, L1, L2)
         self.variables["V"] = amath.zeros(
