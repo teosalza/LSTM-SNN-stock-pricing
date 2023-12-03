@@ -137,3 +137,4 @@ if __name__ == "__main__":
     # |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10 |
 
     #example usage: python stock_data_downloader.py --ticker-name 6857.T --start-interval-date 2007-01-23 --end-interval-date 2013-12-30 --output-dir ../datasets/stock_prices/nikkei_225/
+    
