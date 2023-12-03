@@ -8,6 +8,8 @@ import numpy as np
 import more_itertools
 import matplotlib.pyplot as plt
 import pandas as pd
+import plotly.graph_objects as go
+from ta.momentum import WilliamsRIndicator  
 import pandas_ta as ta
 
 def calculate_ema(df,window = 10):
@@ -25,13 +27,20 @@ def calculate_mom(df,windwow=10):
         mom[i] = df[i]-df[i-(windwow-1)]
     return mom
 
-def calculate_rsi(df,window=10):
+def calculate_rsi(df,window=10,ema=False):
     rsi = df.copy()
     rsi["diff"] = rsi["Close"].diff(1)
     rsi['gain'] = rsi['diff'].clip(lower=0)
     rsi['loss'] = rsi['diff'].clip(upper=0).abs()
-    rsi['avg_gain'] = rsi['gain'].rolling(window=window, min_periods=window).mean()
-    rsi['avg_loss'] = rsi['loss'].rolling(window=window, min_periods=window).mean()
+    if ema == True:
+	    # Use exponential moving average
+        rsi['avg_gain'] = rsi['gain'].ewm(com = window - 1, adjust=True, min_periods = window).mean()  
+        rsi['avg_loss'] = rsi['loss'].ewm(com = window - 1, adjust=True, min_periods = window).mean()
+    else:
+        # Use simple moving average
+        rsi['avg_gain'] = rsi['gain'].rolling(window=window, min_periods=window).mean()
+        rsi['avg_loss'] = rsi['loss'].rolling(window=window, min_periods=window).mean()
+
     rsi['rs'] = rsi['avg_gain'] / rsi['avg_loss']
     rsi['rsi'] = 100 - (100 / (1.0 + rsi['rs']))
     return rsi[["rsi"]]
@@ -97,12 +106,33 @@ if __name__ == "__main__":
     STOCHASTIC_D = k_stock["Stochastic D%"]
 
     #Relative Strength Index (RSI)
+    # RSI2 = ta.rsi(close=close_price, length=10)
     RSI = calculate_rsi(stock_price,10)
-    # RSI = ta.rsi(close=close_price, length=10)
+
+    #Moving average convergence divergence
+    # m_ema12 = close_price.ewm(span=12, adjust=False, min_periods=12).mean()
+    # m_ema26 = close_price.ewm(span=26, adjust=False, min_periods=26).mean()
+    # macd = m_ema12 - m_ema26
+    MACD = ta.macd(close=close_price, fast=12, slow=26, signal=9, append=True)["MACD_12_26_9"]
+
+    #Larry William % range oscillator
+    R = WilliamsRIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,lbp=10).williams_r()
 
 
-    plt.plot(RSI)
-    plt.show()
+    # plt.plot(macd.ewm(span=9, adjust=False, min_periods=9).mean()[-500:])
+    # plt.plot(macd[-500:])
+    # plt.show()
+
+
+    # fig = go.Figure(data=[go.Candlestick(x=stock_price.index,
+    #             open=stock_price['Open'].values,
+    #             high=stock_price['High'].values,
+    #             low=stock_price['Low'].values,
+    #             close=stock_price.values)])
+
+    # fig.show()
+    aaa="asd"
+
 
     # |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10 |
 
