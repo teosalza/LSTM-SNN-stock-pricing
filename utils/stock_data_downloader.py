@@ -49,7 +49,7 @@ def calculate_rsi(df,window=10,ema=False):
 
     rsi['rs'] = rsi['avg_gain'] / rsi['avg_loss']
     rsi['rsi'] = 100 - (100 / (1.0 + rsi['rs']))
-    return rsi[["rsi"]]
+    return rsi["rsi"]
 
 
 if __name__ == "__main__":
@@ -88,18 +88,22 @@ if __name__ == "__main__":
 
     #simple moving average 10 days
     SMA10 = close_price.rolling(WINDOW_SIZE).mean()
+    SMA10.name = "sma10"
 
     #weighted moving average 10 days
     weights = np.arange(1,11)
     WMA10 = close_price.rolling(WINDOW_SIZE).apply(lambda x: np.sum(weights*x)) / sum(weights)
+    WMA10.name = "wma10"
 
     #exponential moving average 10 days
     smoothing = 2/11
     # EMA10 = close_price.ewm(alpha=smoothing,adjust=False).mean()
     EMA10 = calculate_ema(close_price,WINDOW_SIZE)
+    EMA10.name = "ema10"
 
     #Momentum 10 days
     MOM = close_price - close_price.shift(WINDOW_SIZE-1)
+    MOM.name = "mom"
     # MOM = calculate_mom(close_price,10)
 
     #Stochastic oscillators
@@ -125,12 +129,14 @@ if __name__ == "__main__":
 
     #Larry William % range oscillator
     R = WilliamsRIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,lbp=10).williams_r()
+    R.name = "r"
 
     #Accumulation Distribution oscillator
     AD = AccDistIndexIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,volume=stock_price["Volume"]).acc_dist_index()
+    AD.name = "ad"
 
     #Commodity Channnel Index
-    TA = CCIIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,window=WINDOW_SIZE).cci()
+    CCI = CCIIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,window=WINDOW_SIZE).cci()
 
     #Rate of change indicator 
     ROC = ROCIndicator(close=close_price,window=WINDOW_SIZE).roc()
@@ -140,12 +146,16 @@ if __name__ == "__main__":
 
     #Disparity index momentum
     DIS = calculate_disparity_index(close=close_price,sma_n=SMA10)
+    DIS.name = "ris"
 
     #Bollinger bands
     BB = BollingerBands(close=close_price,window=WINDOW_SIZE)
     BB_LOW = BB.bollinger_lband()
     BB_HIGH = BB.bollinger_hband()
-    BB_MID = BB.bollinger_mavg()
+
+
+    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH]).T
+
     # plt.plot(macd.ewm(span=9, adjust=False, min_periods=9).mean()[-500:])
     # plt.plot(macd[-500:])
     # plt.show()
