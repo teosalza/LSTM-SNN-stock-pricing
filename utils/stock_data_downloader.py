@@ -9,7 +9,10 @@ import more_itertools
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.graph_objects as go
-from ta.momentum import WilliamsRIndicator  
+from ta.momentum import WilliamsRIndicator,ROCIndicator  
+from ta.volume import AccDistIndexIndicator,OnBalanceVolumeIndicator
+from ta.volatility import BollingerBands
+from ta.trend import CCIIndicator
 import pandas_ta as ta
 
 def calculate_ema(df,window = 10):
@@ -18,6 +21,9 @@ def calculate_ema(df,window = 10):
     for i in range(len(df)-1):
         ema[i+1] = (1-smoothing)*ema[i] + smoothing*df[i+1]
     return ema 
+
+def calculate_disparity_index(close,sma_n):
+    return (close-sma_n)/(sma_n*100)
 
 def calculate_mom(df,windwow=10):
     mom = df.copy()
@@ -78,27 +84,29 @@ if __name__ == "__main__":
     stock_price = stock_price.dropna()
     close_price = stock_price["Close"]
 
+    WINDOW_SIZE =10
+
     #simple moving average 10 days
-    SMA10 = close_price.rolling(10).mean()
+    SMA10 = close_price.rolling(WINDOW_SIZE).mean()
 
     #weighted moving average 10 days
     weights = np.arange(1,11)
-    WMA10 = close_price.rolling(10).apply(lambda x: np.sum(weights*x)) / sum(weights)
+    WMA10 = close_price.rolling(WINDOW_SIZE).apply(lambda x: np.sum(weights*x)) / sum(weights)
 
     #exponential moving average 10 days
     smoothing = 2/11
     # EMA10 = close_price.ewm(alpha=smoothing,adjust=False).mean()
-    EMA10 = calculate_ema(close_price,10)
+    EMA10 = calculate_ema(close_price,WINDOW_SIZE)
 
     #Momentum 10 days
-    MOM = close_price - close_price.shift(9)
+    MOM = close_price - close_price.shift(WINDOW_SIZE-1)
     # MOM = calculate_mom(close_price,10)
 
     #Stochastic oscillators
     k_period = 10
     k_stock = pd.DataFrame()
-    k_stock["k_high"] = stock_price["High"].rolling(10).max()
-    k_stock["k_low"] = stock_price["Low"].rolling(10).min()
+    k_stock["k_high"] = stock_price["High"].rolling(WINDOW_SIZE).max()
+    k_stock["k_low"] = stock_price["Low"].rolling(WINDOW_SIZE).min()
     k_stock["Stochastic K%"] = (close_price - k_stock["k_low"]) / (k_stock["k_high"]-k_stock["k_low"]) * 100
     k_stock["Stochastic D%"] = k_stock["Stochastic K%"].rolling(k_period).mean()
 
@@ -107,7 +115,7 @@ if __name__ == "__main__":
 
     #Relative Strength Index (RSI)
     # RSI2 = ta.rsi(close=close_price, length=10)
-    RSI = calculate_rsi(stock_price,10)
+    RSI = calculate_rsi(stock_price,WINDOW_SIZE)
 
     #Moving average convergence divergence
     # m_ema12 = close_price.ewm(span=12, adjust=False, min_periods=12).mean()
@@ -118,7 +126,26 @@ if __name__ == "__main__":
     #Larry William % range oscillator
     R = WilliamsRIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,lbp=10).williams_r()
 
+    #Accumulation Distribution oscillator
+    AD = AccDistIndexIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,volume=stock_price["Volume"]).acc_dist_index()
 
+    #Commodity Channnel Index
+    TA = CCIIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,window=WINDOW_SIZE).cci()
+
+    #Rate of change indicator 
+    ROC = ROCIndicator(close=close_price,window=WINDOW_SIZE).roc()
+
+    #On Balance Indicator
+    OBV = OnBalanceVolumeIndicator(close=close_price,volume=stock_price["Volume"]).on_balance_volume()
+
+    #Disparity index momentum
+    DIS = calculate_disparity_index(close=close_price,sma_n=SMA10)
+
+    #Bollinger bands
+    BB = BollingerBands(close=close_price,window=WINDOW_SIZE)
+    BB_LOW = BB.bollinger_lband()
+    BB_HIGH = BB.bollinger_hband()
+    BB_MID = BB.bollinger_mavg()
     # plt.plot(macd.ewm(span=9, adjust=False, min_periods=9).mean()[-500:])
     # plt.plot(macd[-500:])
     # plt.show()
@@ -128,7 +155,7 @@ if __name__ == "__main__":
     #             open=stock_price['Open'].values,
     #             high=stock_price['High'].values,
     #             low=stock_price['Low'].values,
-    #             close=stock_price.values)])
+    #             close=stock_price.values)])   
 
     # fig.show()
     aaa="asd"
