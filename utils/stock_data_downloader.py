@@ -115,7 +115,9 @@ if __name__ == "__main__":
     k_stock["Stochastic D%"] = k_stock["Stochastic K%"].rolling(k_period).mean()
 
     STOCHASTIC_K = k_stock["Stochastic K%"]
+    STOCHASTIC_K.name = "stck%"
     STOCHASTIC_D = k_stock["Stochastic D%"]
+    STOCHASTIC_D.name = "stcd%"
 
     #Relative Strength Index (RSI)
     # RSI2 = ta.rsi(close=close_price, length=10)
@@ -126,6 +128,7 @@ if __name__ == "__main__":
     # m_ema26 = close_price.ewm(span=26, adjust=False, min_periods=26).mean()
     # macd = m_ema12 - m_ema26
     MACD = ta.macd(close=close_price, fast=12, slow=26, signal=9, append=True)["MACD_12_26_9"]
+    MACD.name = "macd"
 
     #Larry William % range oscillator
     R = WilliamsRIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,lbp=10).williams_r()
@@ -153,8 +156,18 @@ if __name__ == "__main__":
     BB_LOW = BB.bollinger_lband()
     BB_HIGH = BB.bollinger_hband()
 
+    T_N = close_price
+    T_N.name = "t_n"
+    T_N1 = close_price.shift(-1)
+    T_N1.name = "t_n1"
+    T_N2 = close_price.shift(-2)
+    T_N2.name = "t_n2"
 
-    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH]).T
+    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N,T_N1,T_N2]).T
+    final_dataframe.index = final_dataframe.index.tz_localize(None)
+    final_dataframe.to_csv("{}{}.csv".format(OUTPUT_DIR,TICKER_NAME))
+
+
 
     # plt.plot(macd.ewm(span=9, adjust=False, min_periods=9).mean()[-500:])
     # plt.plot(macd[-500:])
@@ -168,7 +181,6 @@ if __name__ == "__main__":
     #             close=stock_price.values)])   
 
     # fig.show()
-    aaa="asd"
 
 
     # |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10 |

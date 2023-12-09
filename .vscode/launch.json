@@ -11,10 +11,11 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args":["--ticker-name","6857.T",
-                "--start-interval-date","2007-01-23",
-                "--end-interval-date","2013-12-30",
-                "--output-dir", "./datasets/stock_prices/nikkei_225/"]
+            // "args":["--ticker-name","^N225",   
+            //     "--start-interval-date","2007-01-23",
+            //     "--end-interval-date","2013-12-30",
+            //     "--output-dir", "./datasets/stock_prices/nikkei_225/"]
+            "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225.csv","--window-size","10"]
         }
     ]
 }
