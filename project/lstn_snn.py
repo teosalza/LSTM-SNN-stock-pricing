@@ -249,6 +249,7 @@ class LSTM_GBRBM(nn.Module):
 			target = target.to(self.device)
 			
 			pred = self.forward(data)
+			pred = pred[None,:]
 			linear_loss = self.criterion(pred,target)
 			
 			# self.dot = make_dot(pred.mean(),params=dict(self.named_parameters()))
