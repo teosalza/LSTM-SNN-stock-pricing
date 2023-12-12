@@ -10,6 +10,7 @@ from torchviz import make_dot, make_dot_from_trace
 import torch.nn.functional as F
 from torch.autograd import grad
 import pandas as pd
+import os
 
 
 
@@ -203,6 +204,11 @@ class LSTM_GBRBM(nn.Module):
 		self.loss_gbrbm = []
 		self.lr_list = []
 
+	def eval(self):
+		self.lstm_layer.eval()
+		self.gbrbm.eval()
+		return
+	
 	def get_optimizer(self,optimizer_name):
 		if optimizer_name=="adam":
 			return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -303,76 +309,76 @@ def split_train_test(x_dset,y_dset,split_size):
 
 
 if __name__ == "__main__":
-    # Instantiate the parser
-    parser = argparse.ArgumentParser(description="LSTM-SNN training.", epilog="""-------------------""")
+	# Instantiate the parser
+	parser = argparse.ArgumentParser(description="LSTM-SNN training.", epilog="""-------------------""")
 
-    # Required positional arguments
-    parser.add_argument("--dataset-name", type=str,
-                        help="[string] specify the name.",required=True)
-    parser.add_argument("--window-size", type=int,
-                        help="[int] specify the window size.",required=True)
-    
-    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+	# Required positional arguments
+	parser.add_argument("--dataset-name", type=str,
+						help="[string] specify the name.",required=True)
+	parser.add_argument("--window-size", type=int,
+						help="[int] specify the window size.",required=True)
 
-    DATASET_NAME = args.dataset_name
-    WINDOW_SIZE = args.window_size
+	args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
 
-    dataset = pd.read_csv(DATASET_NAME)
+	DATASET_NAME = args.dataset_name
+	WINDOW_SIZE = args.window_size
 
-    #DROP NA Values starting from 26th(25) position
-    dataset.dropna(inplace=True)
-    dataset.index = dataset["Date"]
-    dataset = dataset.iloc[:,1:]
+	dataset = pd.read_csv(DATASET_NAME)
 
-    scaler = StandardScaler()
-    scaled_dataset = scaler.fit_transform(dataset)
-    x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
+	#DROP NA Values starting from 26th(25) position
+	dataset.dropna(inplace=True)
+	dataset.index = dataset["Date"]
+	dataset = dataset.iloc[:,1:]
 
-    split_size = 0.8
-    x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size)
+	scaler = StandardScaler()
+	scaled_dataset = scaler.fit_transform(dataset)
+	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
-    x_train = torch.from_numpy(x_train).to(torch.float)
-    y_train = torch.from_numpy(y_train).to(torch.float)
-    
-    x_test = torch.from_numpy(x_test).to(torch.float)
-    y_test = torch.from_numpy(y_test).to(torch.float)
+	split_size = 0.8
+	x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size)
 
-    # scaled_dataset = pd.DataFrame(scaled_dataset)
-    # scaled_dataset.columns = dataset.columns
-    print("Shape of train and test datasets of window size of :{}".format(WINDOW_SIZE))
-    print(x_train.shape)
-    print(y_train.shape)
-    print(x_test.shape) 
-    print(y_test.shape)
+	x_train = torch.from_numpy(x_train).to(torch.float)
+	y_train = torch.from_numpy(y_train).to(torch.float)
 
-    train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+	x_test = torch.from_numpy(x_test).to(torch.float)
+	y_test = torch.from_numpy(y_test).to(torch.float)
+
+	# scaled_dataset = pd.DataFrame(scaled_dataset)
+	# scaled_dataset.columns = dataset.columns
+	print("Shape of train and test datasets of window size of :{}".format(WINDOW_SIZE))
+	print(x_train.shape)
+	print(y_train.shape)
+	print(x_test.shape) 
+	print(y_test.shape)
+
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
 
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # device="cpu"
-    clipping = 10.0
-    learning_rate = 1e-4
-    training_epochs = 10
-    cd_step = 5
-    batch_size = 1
-    k = 3      
-    input_size=16
-    visible_size = 500
-    hidden_size = 25
+	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	# device="cpu"
+	clipping = 10.0
+	learning_rate = 1e-4
+	training_epochs = 5
+	cd_step = 5
+	batch_size = 1
+	k = 3      
+	input_size=16
+	visible_size = 500
+	hidden_size = 25
 
-    '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
-    optimizer ="sdg"
-    criterion_loss = nn.MSELoss()
+	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
+	optimizer ="sdg"
+	criterion_loss = nn.MSELoss()
 
-    #multiplicative lr
-    lmbda = lambda training_epochs: 0.65 ** training_epochs
-    '''scheduler_multiplicative = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)'''
-    #cosine anneling
-    '''scheduler_annelling = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, training_epochs)'''
-    scheduler_annelling="cosine_anneling"
+	#multiplicative lr
+	lmbda = lambda training_epochs: 0.65 ** training_epochs
+	'''scheduler_multiplicative = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)'''
+	#cosine anneling
+	'''scheduler_annelling = torch.optim.lr_scheduler.CosineAnnealingLR(
+			optimizer, training_epochs)'''
+	scheduler_annelling="cosine_anneling"
 
-    model_lstm_gbrbm = LSTM_GBRBM(
+	model_lstm_gbrbm = LSTM_GBRBM(
         input_size=input_size,
         visible_size=visible_size,
         hidden_size=hidden_size,
@@ -385,6 +391,34 @@ if __name__ == "__main__":
         learning_rate=learning_rate,
         cd_step=cd_step,
         device=device)
+	
+	model_lstm_gbrbm.train(train_loader=train_loader) 
+	
+	max_count = 0
+	for entry in os.listdir("models_weight"):
+		num = int(entry.split(".")[0].split("_")[1])
+		if num > max_count:
+			max_count = num
+	
+	#save model
+	torch.save(model_lstm_gbrbm.state_dict(),"models_weight/lstm-gbrbm_{}.pt".format(max_count+1))
 
-    model_lstm_gbrbm.train(train_loader=train_loader)
-    print(scaled_dataset)
+	#load model again
+	loadel_model = LSTM_GBRBM(
+        input_size=input_size,
+        visible_size=visible_size,
+        hidden_size=hidden_size,
+        optimizer = optimizer,
+        criterion = criterion_loss,
+        scheduler=scheduler_annelling,
+        epoch = training_epochs,
+        clipping = clipping,
+        k = k,
+        learning_rate=learning_rate,
+        cd_step=cd_step,
+        device=device)
+	
+	loadel_model.load_state_dict(torch.load("models_weight/lstm-gbrbm_{}.pt".format(max_count+1)))
+	loadel_model.eval()
+
+	s = "asd"
