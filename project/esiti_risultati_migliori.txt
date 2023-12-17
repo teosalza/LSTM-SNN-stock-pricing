@@ -1,0 +1,12 @@
+#Esito migliore run 8
+	clipping = 10.0
+	learning_rate_lstm = 1e-3
+	learning_rate_gbrbm = 1e-4
+	training_epochs = 15
+	cd_step = 10
+	batch_size = 1
+	input_size=16
+	visible_size = 500
+	hidden_size = 100
+    scheduler=nessuno
+    optimizer=sdg

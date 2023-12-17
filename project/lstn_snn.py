@@ -11,10 +11,13 @@ import torch.nn.functional as F
 from torch.autograd import grad
 import pandas as pd
 import os
+from utils import create_window_dataset,split_train_test
 
 
 
-class GBRBM(torch.nn.Module):   
+
+
+class GBRBM(torch.nn.Module):
 	def __init__(self,visible_size,hidden_size,init_var=1e-0,cd_step=1,cd_burning=0,device="cpu"):
 		super().__init__()
 		self.cd_step = cd_step
@@ -23,7 +26,7 @@ class GBRBM(torch.nn.Module):
 		self.hidden_size = hidden_size
 		self.init_var = init_var
 		self.device=device
-		
+
 		self.linear_layer = nn.Linear(hidden_size,3).to(self.device)
 		self.W = nn.Parameter(torch.Tensor(visible_size, hidden_size).to(self.device))
 		self.b = nn.Parameter(torch.Tensor(hidden_size).to(self.device))
@@ -46,7 +49,7 @@ class GBRBM(torch.nn.Module):
 	@torch.no_grad()
 	def CD_grad(self,v):
 		# v = v.view(v.shape[0], -1)
-		prob_h, h, pos_eng = self.positive_energy(v) 
+		prob_h, h, pos_eng = self.positive_energy(v)
 
 		# negative gradient
 		v_neg = torch.randn_like(v)
@@ -55,7 +58,7 @@ class GBRBM(torch.nn.Module):
 		return [pos_eng,neg_eng]
 		for name, param in self.named_parameters():
 			param.grad = pos_eng[name] - neg_eng[name]
-	
+
 	@torch.no_grad()
 	def negative_grad(self, v):
 		var = self.get_var()
@@ -67,7 +70,7 @@ class GBRBM(torch.nn.Module):
 		h_neg = torch.cat([xx[1] for xx in samples], dim=0)
 		grad = self.energy_grad_param(v_neg, h_neg)
 		return grad
-	
+
 	@torch.no_grad()
 	def Gibbs_sampling_vh(self, v, num_steps=10, burn_in=0):
 		samples, var = [], self.get_var()
@@ -86,7 +89,7 @@ class GBRBM(torch.nn.Module):
 				samples += [(v, h)]
 				prob_h_samples.append(prob_h)
 		return samples,prob_h_samples
-	
+
 	# @torch.no_grad()
 	def prob_h_given_v(self, v, var):
 		return torch.sigmoid((v / var).mm(self.W) + self.b)
@@ -101,7 +104,7 @@ class GBRBM(torch.nn.Module):
 		h = torch.bernoulli(prob_h)
 		pos_energy = self.energy_grad_param(v,h)
 		return prob_h,h,pos_energy
-	
+
 	@torch.no_grad()
 	def energy_grad_param(self, v, h):
         # compute the gradient (parameter) of energy averaged over batch size
@@ -113,14 +116,14 @@ class GBRBM(torch.nn.Module):
 		grad['log_var'] = (-0.5 * (v - self.mu)**2 / var +
 		                   ((v / var) * h.mm(self.W.T))).mean(dim=0)
 		return grad
-	
+
 	@torch.no_grad()
 	def reconstruction(self, v):
 		v, var = v.view(v.shape[0], -1), self.get_var()
 		prob_h = self.prob_h_given_v(v, var)
 		v_bar = self.prob_v_given_h(prob_h)
 		return F.mse_loss(v, v_bar)
-	    
+
 	def compute_linear_layer(self,data):
 		v = data
 		# samples,prob_h = self.Gibbs_sampling_vh(data,1,0)
@@ -134,8 +137,8 @@ class GBRBM(torch.nn.Module):
 
         # forward sampling
 		prob_h = self.prob_h_given_v(v, var)
-		return self.linear_layer(prob_h[0])
-	
+		return self.linear_layer(prob_h)
+
 	def forward(self,data):
 		# samples,prob_h = self.Gibbs_sampling_vh(data,1,0)
 		samples, var = [], self.get_var()
@@ -148,7 +151,7 @@ class GBRBM(torch.nn.Module):
 
         # forward sampling
 		prob_h = self.prob_h_given_v(data, var).requires_grad_()
-		return self.linear_layer(prob_h[0])
+		return self.linear_layer(prob_h)
 
 class LSTM_module(nn.Module):
 	def __init__(self,input_size=10,hidden_size=500,device="cpu"):
@@ -162,12 +165,12 @@ class LSTM_module(nn.Module):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		c_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		out,(h_n,c_n) = self.lstm1(x, (h_t, c_t))
-		
+
 		return out[:,-1,:]
 		# return out,h_n,h_n
 
 class LSTM_GBRBM(nn.Module):
-	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate,cd_step,device="cpu"):
+	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,device="cpu"):
 		super(LSTM_GBRBM, self).__init__()
 		self.input_size = input_size
 		self.visible_size = visible_size
@@ -176,10 +179,12 @@ class LSTM_GBRBM(nn.Module):
 		self.epoch = epoch
 		self.clipping = clipping
 		self.k = k
-		self.learning_rate = learning_rate
+		self.learning_rate_lstm = learning_rate_lstm
+		self.learning_rate_gbrbm = learning_rate_gbrbm
 		self.cd_step = cd_step
 		self.device=device
 		self.dot = ""
+		self.use_scheduler = False
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
 		self.lstm_layer = LSTM_module(
@@ -187,49 +192,68 @@ class LSTM_GBRBM(nn.Module):
 			hidden_size=self.visible_size,
 			device=self.device
 			)
-		
+
 		self.gbrbm = GBRBM(
 			visible_size=self.visible_size,
 			hidden_size=self.hidden_size,
 			cd_step=cd_step,
 			device=self.device
 			).to(device)
-		
+
 		#setting optimizer and learning_rate scheduler
-		self.optimizer = self.get_optimizer(optimizer)
-		self.scheduler = self.get_scheduler(scheduler)
+		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
+		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
+		if self.use_scheduler:
+			self.scheduler_lstm = self.get_scheduler(scheduler,"lstm")
+			self.scheduler_gbrbm = self.get_scheduler(scheduler,"gbrbm")
 
 		#Setting informazion variables
 		self.loss = []
 		self.loss_gbrbm = []
-		self.lr_list = []
+		self.lr_list_lstm = []
+		self.lr_list_gbrbm = []
 
 	def eval(self):
 		self.lstm_layer.eval()
 		self.gbrbm.eval()
 		return
-	
-	def get_optimizer(self,optimizer_name):
-		if optimizer_name=="adam":
-			return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-		if optimizer_name=="sdg":
-			return torch.optim.SGD(self.parameters(), lr=self.learning_rate)
-		return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-	def get_scheduler(self,scheduler_name):
+	def get_optimizer(self,optimizer_name,type):
+		if optimizer_name=="adam":
+			if type == "lstm":
+				return torch.optim.Adam(self.lstm_layer.parameters(), lr=self.learning_rate_lstm)
+			else:
+				return torch.optim.Adam(self.gbrbm.parameters(), lr=self.learning_rate_gbrbm)
+		else:
+			if type == "lstm":
+				return torch.optim.SGD(self.lstm_layer.parameters(), lr=self.learning_rate_lstm)
+			else:
+				return torch.optim.SGD(self.gbrbm.parameters(), lr=self.learning_rate_gbrbm)
+
+	def get_scheduler(self,scheduler_name,type):
 		if scheduler_name == "cosine_anneling":
-			return torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epoch)
-		return torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epoch)
-	
+			if type == "lstm":
+				return torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer_lstm, self.epoch)
+			else:
+				return torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer_gbrbm, self.epoch)
+		else:
+			if type == "lstm":
+				return torch.optim.lr_scheduler.ExponentialLR(self.optimizer_lstm, gamma=0.1)
+			else:
+				return torch.optim.lr_scheduler.ExponentialLR(self.optimizer_gbrbm, gamma=0.1)
+
 	def train(self,train_loader):
 		for epoch in range(self.epoch):
 			print("Current epoch :{}".format(epoch),end="\r")
 			loss, loss_gbrbm = self.train_current_epoch(train_loader)
 			# return self.train_current_epoch(train_loader)
 			self.loss.append(loss)
-			self.loss_gbrbm.append(loss_gbrbm)
-			self.lr_list.append(self.optimizer.param_groups[0]["lr"])
-			self.scheduler.step()
+			self.loss_gbrbm.append(loss_gbrbm.item())
+			if self.use_scheduler:
+				self.lr_list_lstm.append(self.optimizer_lstm.param_groups[0]["lr"])
+				self.lr_list_gbrbm.append(self.optimizer_gbrbm.param_groups[0]["lr"])
+				self.scheduler_lstm.step()
+				self.scheduler_gbrbm.step()
 			print("Current epoch :{} , current error: {}, current error gbrmb: {}".format(epoch,loss,loss_gbrbm),end="\r")
 			print("")
 
@@ -248,16 +272,17 @@ class LSTM_GBRBM(nn.Module):
 		self.gbrbm.train()
 
 		for ii, (data,target)  in enumerate(train_loader):
-			self.optimizer.zero_grad()
-			
+			self.optimizer_lstm.zero_grad()
+			self.optimizer_gbrbm.zero_grad()
+
 			#--------------------------
 			data = data.to(self.device)
 			target = target.to(self.device)
-			
+
 			pred = self.forward(data)
-			pred = pred[None,:]
+			# pred = pred[None,:]
 			linear_loss = self.criterion(pred,target)
-			
+
 			# self.dot = make_dot(pred.mean(),params=dict(self.named_parameters()))
 
 			data_lstm = self.lstm_layer(data)
@@ -270,11 +295,11 @@ class LSTM_GBRBM(nn.Module):
 			if self.clipping > 0:
 				nn.utils.clip_grad_norm_(self.gbrbm.parameters(),self.clipping)
 			linear_loss.backward()
-			
+
 			# pred = self.gbrbm.compute_linear_layer(data_lstm)
 			# linear_loss = self.criterion(pred,target)
 
-			
+
 			# make_dot(pred.mean(), params=dict(self.named_parameters()))
 
 			# grads_lstm = grad(linear_loss,data_lstm)
@@ -284,27 +309,13 @@ class LSTM_GBRBM(nn.Module):
 					param.grad = pos_eng[name] - neg_eng[name]
 
 			# linear_loss.backward()
-			
-			self.optimizer.step()
+
+			self.optimizer_lstm.step()
+			self.optimizer_gbrbm.step()
 			if ii == len(train_loader) - 1:
 				recon_loss = self.gbrbm.reconstruction(data_lstm).item()
 
 		return [recon_loss,linear_loss]
-
-def create_window_dataset(dataset,wind_size):
-    x_wind = []
-    y_wind = []
-    for i in range(wind_size,dataset.shape[0]):
-        curr = dataset[i-wind_size:i]
-        x_wind.append(curr[:,:-3])
-        y_wind.append(curr[-1,-3:])
-    return np.array(x_wind),np.array(y_wind)
-
-def split_train_test(x_dset,y_dset,split_size):
-    test_set_size = int(np.round(0.2*x_dset.shape[0]))  
-    train_set_size = x_dset.shape[0] - (test_set_size)
-    return x_dset[:train_set_size],y_dset[:train_set_size],x_dset[train_set_size:],y_dset[train_set_size:]
-
 
 
 
@@ -348,23 +359,24 @@ if __name__ == "__main__":
 	print("Shape of train and test datasets of window size of :{}".format(WINDOW_SIZE))
 	print(x_train.shape)
 	print(y_train.shape)
-	print(x_test.shape) 
+	print(x_test.shape)
 	print(y_test.shape)
 
-	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = False)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	# device="cpu"
 	clipping = 10.0
-	learning_rate = 1e-4
-	training_epochs = 5
-	cd_step = 5
-	batch_size = 1
-	k = 3      
+	learning_rate_lstm = 1e-3
+	learning_rate_gbrbm = 1e-3
+	training_epochs = 200
+	cd_step = 15
+	batch_size = 15
+	k = 3
 	input_size=16
 	visible_size = 500
-	hidden_size = 25
+	hidden_size = 250
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="sdg"
@@ -376,49 +388,63 @@ if __name__ == "__main__":
 	#cosine anneling
 	'''scheduler_annelling = torch.optim.lr_scheduler.CosineAnnealingLR(
 			optimizer, training_epochs)'''
-	scheduler_annelling="cosine_anneling"
+	#Exponential
+	'''
+		torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+	'''
+	scheduler_annelling="exponential_lr"
 
 	model_lstm_gbrbm = LSTM_GBRBM(
-        input_size=input_size,
-        visible_size=visible_size,
-        hidden_size=hidden_size,
+        input_size = input_size,
+        visible_size = visible_size,
+        hidden_size = hidden_size,
         optimizer = optimizer,
         criterion = criterion_loss,
-        scheduler=scheduler_annelling,
+        scheduler = scheduler_annelling,
         epoch = training_epochs,
         clipping = clipping,
         k = k,
-        learning_rate=learning_rate,
-        cd_step=cd_step,
-        device=device)
-	
-	model_lstm_gbrbm.train(train_loader=train_loader) 
-	
+        learning_rate_lstm = learning_rate_lstm,
+        learning_rate_gbrbm = learning_rate_gbrbm,
+        cd_step = cd_step,
+        device = device)
+	model_lstm_gbrbm.train(train_loader=train_loader)
+
 	max_count = 0
 	for entry in os.listdir("models_weight"):
 		num = int(entry.split(".")[0].split("_")[1])
 		if num > max_count:
 			max_count = num
-	
+
 	#save model
 	torch.save(model_lstm_gbrbm.state_dict(),"models_weight/lstm-gbrbm_{}.pt".format(max_count+1))
 
-	#load model again
-	loadel_model = LSTM_GBRBM(
-        input_size=input_size,
-        visible_size=visible_size,
-        hidden_size=hidden_size,
-        optimizer = optimizer,
-        criterion = criterion_loss,
-        scheduler=scheduler_annelling,
-        epoch = training_epochs,
-        clipping = clipping,
-        k = k,
-        learning_rate=learning_rate,
-        cd_step=cd_step,
-        device=device)
-	
-	loadel_model.load_state_dict(torch.load("models_weight/lstm-gbrbm_{}.pt".format(max_count+1)))
-	loadel_model.eval()
+	fig = plt.figure()
+	ax1 = fig.add_subplot(211)
+	ax2 = fig.add_subplot(212)
+	ax1.title.set_text('Total error')
+	ax1.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss)
+	ax2.title.set_text('GBRBM error')
+	ax2.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss_gbrbm)
+	plt.show()
 
-	s = "asd"
+	asd = "asd"
+
+	#load model again
+	# loadel_model = LSTM_GBRBM(
+    #     input_size=input_size,
+    #     visible_size=visible_size,
+    #     hidden_size=hidden_size,
+    #     optimizer = optimizer,
+    #     criterion = criterion_loss,
+    #     scheduler=scheduler_annelling,
+    #     epoch = training_epochs,
+    #     clipping = clipping,
+    #     k = k,
+    #     learning_rate=learning_rate,
+    #     cd_step=cd_step,
+    #     device=device)
+
+	# loadel_model.load_state_dict(torch.load("models_weight/lstm-gbrbm_{}.pt".format(max_count+1)))
+	# loadel_model.eval()
+
