@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from torch.autograd import grad
 import pandas as pd
 import os
+import math
 from utils import create_window_dataset,split_train_test
 
 
@@ -63,6 +64,8 @@ class GBRBM(torch.nn.Module):
 	def negative_grad(self, v):
 		var = self.get_var()
 		var_mean = var.mean().item()
+		
+		#Normal Gibb approximation
 		samples,_ = self.Gibbs_sampling_vh(v,
 										num_steps=self.cd_step,
 										burn_in=self.cd_burning)
@@ -184,7 +187,7 @@ class LSTM_GBRBM(nn.Module):
 		self.cd_step = cd_step
 		self.device=device
 		self.dot = ""
-		self.use_scheduler = False
+		self.use_scheduler = True
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
 		self.lstm_layer = LSTM_module(
@@ -204,7 +207,7 @@ class LSTM_GBRBM(nn.Module):
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
 		if self.use_scheduler:
-			self.scheduler_lstm = self.get_scheduler(scheduler,"lstm")
+			# self.scheduler_lstm = self.get_scheduler(scheduler,"lstm")
 			self.scheduler_gbrbm = self.get_scheduler(scheduler,"gbrbm")
 
 		#Setting informazion variables
@@ -252,7 +255,7 @@ class LSTM_GBRBM(nn.Module):
 			if self.use_scheduler:
 				self.lr_list_lstm.append(self.optimizer_lstm.param_groups[0]["lr"])
 				self.lr_list_gbrbm.append(self.optimizer_gbrbm.param_groups[0]["lr"])
-				self.scheduler_lstm.step()
+				# self.scheduler_lstm.step()
 				self.scheduler_gbrbm.step()
 			print("Current epoch :{} , current error: {}, current error gbrmb: {}".format(epoch,loss,loss_gbrbm),end="\r")
 			print("")
@@ -346,7 +349,7 @@ if __name__ == "__main__":
 	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
 	split_size = 0.8
-	x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size)
+	x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size,validation=False)
 
 	x_train = torch.from_numpy(x_train).to(torch.float)
 	y_train = torch.from_numpy(y_train).to(torch.float)
@@ -368,22 +371,22 @@ if __name__ == "__main__":
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	# device="cpu"
 	clipping = 10.0
-	learning_rate_lstm = 1e-3
+	learning_rate_lstm = 1e-4
 	learning_rate_gbrbm = 1e-3
 	training_epochs = 200
-	cd_step = 15
-	batch_size = 15
+	cd_step = 50
+	batch_size = 32
 	k = 3
 	input_size=16
 	visible_size = 500
-	hidden_size = 250
+	hidden_size = 100 
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
-	optimizer ="sdg"
+	optimizer ="adam"
 	criterion_loss = nn.MSELoss()
 
 	#multiplicative lr
-	lmbda = lambda training_epochs: 0.65 ** training_epochs
+	'''lmbda = lambda training_epochs: 0.65 ** training_epochs'''
 	'''scheduler_multiplicative = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)'''
 	#cosine anneling
 	'''scheduler_annelling = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -392,7 +395,7 @@ if __name__ == "__main__":
 	'''
 		torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
 	'''
-	scheduler_annelling="exponential_lr"
+	scheduler_annelling="cosine_anneling"
 
 	model_lstm_gbrbm = LSTM_GBRBM(
         input_size = input_size,
@@ -416,7 +419,7 @@ if __name__ == "__main__":
 		if num > max_count:
 			max_count = num
 
-	#save model
+	#save model	
 	torch.save(model_lstm_gbrbm.state_dict(),"models_weight/lstm-gbrbm_{}.pt".format(max_count+1))
 
 	fig = plt.figure()

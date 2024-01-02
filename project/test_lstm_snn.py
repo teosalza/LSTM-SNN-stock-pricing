@@ -3,6 +3,7 @@ from torch import nn
 import numpy as np
 import sys
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score,mean_absolute_percentage_error
 import argparse
 import tqdm
 import matplotlib.pyplot as plt
@@ -14,6 +15,16 @@ import os
 from utils import create_window_dataset,split_train_test
 from lstn_snn import LSTM_GBRBM
 
+def calculate_confusion_matrix(pred,actual):
+    negative = 0
+    positive = 1
+    pred = np.concatenate([pred[0],np.array(pred[1:]).flatten()])
+    actual = np.concatenate([actual[0],np.array(actual[1:]).flatten()])
+    tp = np.sum(np.logical_and(pred == positive, actual == positive))
+    tn = np.sum(np.logical_and(pred == negative, actual == negative))
+    fp = np.sum(np.logical_and(pred == positive, actual == negative))
+    fn = np.sum(np.logical_and(pred == negative, actual == positive))
+    return tp,tn,fp,fn
 
 if __name__ == "__main__":
     # Instantiate the parser
@@ -64,11 +75,15 @@ if __name__ == "__main__":
     train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
+
     for entry in os.listdir(WEIGHT_DIR):
         number = int(entry.split(".")[0].split("_")[1])
         if number > max_int:
             max_int = number
             model_weight_path = WEIGHT_DIR+"/"+entry
+
+    # model_weight_path = WEIGHT_DIR + "/"+"lstm-gbrbm_37.pt"
+    
 
 
 
@@ -79,16 +94,16 @@ if __name__ == "__main__":
     learning_rate_lstm = 1e-3
     learning_rate_gbrbm = 1e-4
     training_epochs = 15
-    cd_step = 10
+    cd_step = 5
     batch_size = 1
     k = 3      
     input_size=16
     visible_size = 500
-    hidden_size = 250
+    hidden_size = 100
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
-    criterion_loss = nn.MSELoss()
+    criterion_loss = nn.MSELoss()   
 
     #multiplicative lr
     lmbda = lambda training_epochs: 0.65 ** training_epochs
@@ -121,29 +136,100 @@ if __name__ == "__main__":
     model_lstm_gbrbm.eval()
 
     x_axis = np.arange(0,x_test.shape[0])
-    y_axis = []
+    y_pred = []
     y_actual=[]
+
+    trend_pred = []
+    trend_actual = []
+
 
     loss_array = []
 
+    old_pred = []
+    old_actual = []
     #test section
     for ii, (data,target)  in enumerate(train_loader_test):
+        
+
         data = data.to(model_lstm_gbrbm.device)
         target = target.to(model_lstm_gbrbm.device) 
 
         pred = model_lstm_gbrbm.forward(data)
-        pred = pred[None,:]
 
         linear_loss = model_lstm_gbrbm.criterion(pred,target)
         loss_array.append(linear_loss.item())
         # y_axis.append(pred.mean().item())
         # y_actual.append(target.mean().item())
-        y_axis.append(pred[0][0][0].item())
+        y_pred.append(pred[0][0].item())
         y_actual.append(target[0][0].item())
 
-    plt.plot(x_axis,y_axis)
-    plt.plot(x_axis,y_actual)
+       
+        pred_trend = []
+        actual_trend = []
+        for i in range(3):
+            if i == 0:
+                if ii > 0:
+                    if old_pred[0][0].item()-pred[0][i].item() > 0:
+                        pred_trend.append(1)
+                    else:
+                        pred_trend.append(0)
+
+                    if old_actual[0][0].item()-target[0][i].item() > 0:
+                        actual_trend.append(1)
+                    else:
+                        actual_trend.append(0)
+            else:
+                if pred[0][i-1].item()-pred[0][i].item() > 0:
+                        pred_trend.append(1)
+                else:
+                    pred_trend.append(0)
+            
+                if target[0][i-1].item()-target[0][i].item() > 0:
+                    actual_trend.append(1)
+                else:
+                    actual_trend.append(0)
+        
+        trend_pred.append(pred_trend)
+        trend_actual.append(actual_trend)
+
+        old_pred = pred
+        old_actual = target
+
+
+    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
+    precision_pos = tp/(tp+fp)
+    precision_neg = tn/(tn+fn)
+    recall_pos = tp/(tp+fn)
+    recall_ne = tn/(tn+fp)
+    accuracy = (tp+tn)/(tp+fp+tn+fn)
+    f1_score = 2*precision_pos*recall_pos/(precision_pos+recall_pos)
+    print("Precision pos: {}".format(precision_pos))
+    print("Precision neg: {}".format(precision_neg))
+    print("Recall pos: {}".format(recall_pos))
+    print("Recall neg: {}".format(recall_ne))
+    print("Accuracy: {}".format(accuracy))
+    print("F1 score: {}".format(f1_score))
+
+
+
+
+
+    plt.plot(x_axis,y_pred,label="Predicted")
+    plt.plot(x_axis,y_actual,label="Actual")
+    plt.legend(loc="upper left")
     plt.show()
 
+
+
+    total_mape = mean_absolute_percentage_error(y_actual,y_pred)
+    total_mae = mean_absolute_error(y_actual,y_pred)
+    total_mse = mean_squared_error(y_actual,y_pred)
+    total_rmse = mean_squared_error(y_actual,y_pred,squared=False)
+    total_r2 = r2_score(y_actual,y_pred)
+    print("MAPE: {}".format(total_mape))
+    print("MAE: {}".format(total_mae))
+    print("MSE: {}".format(total_mse))
+    print("RMSE: {}".format(total_rmse))
+    print("R2: {}".format(total_r2))
     plt.plot(np.arange(len(loss_array)),loss_array)
     plt.show()

@@ -10,3 +10,132 @@
 	hidden_size = 100
     scheduler=nessuno
     optimizer=sdg
+
+#run 30
+	total error : 0.0017
+	gbrbm error: 0.026
+	clipping = 10.0
+	learning_rate_lstm = 1e-3
+	learning_rate_gbrbm = 1e-4
+	training_epochs = 200
+	cd_step = 10
+	batch_size = 16
+	k = 3
+	input_size=16
+	visible_size = 500
+	hidden_size = 200
+	scheduler=nessuno
+    optimizer=sdg
+
+	#result:
+	Precision pos: 0.44880546075085326
+	Precision neg: 0.47572815533980584
+	Recall pos: 0.5490605427974948
+	Recall neg: 0.37764932562620424
+	Accuracy: 0.45991983967935873
+	F1 score: 0.49389671361502346
+
+
+#run37
+	Current epoch :399 , current error: 0.002143624471500516, current error gbrmb: 0.002104953397065401
+	clipping = 10.0
+	learning_rate_lstm = 1e-3
+	learning_rate_gbrbm = 1e-4
+	training_epochs = 400
+	cd_step = 10
+	batch_size = 32
+	k = 3
+	input_size=16
+	visible_size = 500
+	hidden_size = 150
+	scheduler=nessuno
+    optimizer=sdg
+	Precision pos: 0.46167557932263814
+	Precision neg: 0.4965675057208238
+	Recall pos: 0.5407098121085595
+	Recall neg: 0.41811175337186895
+	Accuracy: 0.47695390781563124
+	F1 score: 0.49807692307692314
+
+#run38
+	Current epoch :399 , current error: 0.00226048962213099, current error gbrmb: 0.0016675504157319665
+	clipping = 10.0
+	learning_rate_lstm = 1e-3
+	learning_rate_gbrbm = 1e-4
+	training_epochs = 400
+	cd_step = 10
+	batch_size = 32
+	k = 3
+	input_size=16
+	visible_size = 500
+	hidden_size = 100
+	scheduler=nessuno
+    optimizer=sdg
+	Precision pos: 0.44360902255639095
+	Precision neg: 0.47854077253218885
+	Recall pos: 0.49269311064718163
+	Recall neg: 0.4296724470134875
+	Accuracy: 0.45991983967935873
+	F1 score: 0.466864490603363
+
+#run46
+	Current epoch :399 , current error: 0.4803617000579834, current error gbrmb: 0.008427027612924576
+	clipping = 10.0
+	learning_rate_lstm = 1e-4
+	learning_rate_gbrbm = 1e-3
+	training_epochs = 400
+	cd_step = 10
+	batch_size = 32
+	k = 3
+	input_size=16
+	visible_size = 500
+	hidden_size = 200
+	scheduler=nessuno
+    optimizer=sdg
+	Precision pos: 0.45161290322580644
+	Precision neg: 0.48409090909090907
+	Recall pos: 0.5260960334029228
+	Recall neg: 0.41040462427745666
+	Accuracy: 0.46593186372745493
+	F1 score: 0.4860173577627772
+
+#run48
+	Current epoch :299 , current error: 0.0007055966998450458, current error gbrmb: 0.015355424955487251
+	clipping = 10.0
+	learning_rate_lstm = 1e-4
+	learning_rate_gbrbm = 1e-3
+	training_epochs = 300
+	cd_step = 10
+	batch_size = 32
+	k = 3
+	input_size=16
+	visible_size = 500
+	hidden_size = 200
+	scheduler=nessuno
+    optimizer=sdg
+	Precision pos: 0.5248756218905473
+	Precision neg: 0.5503355704697986
+	Recall pos: 0.4405010438413361
+	Recall neg: 0.6319845857418112
+	Accuracy: 0.5400801603206413
+	F1 score: 0.4790011350737797
+
+#run 58
+	Current epoch :199 , current error: 0.0001994991907849908, current error gbrmb: 0.0004033055738545954
+	clipping = 10.0
+	learning_rate_lstm = 1e-4
+	learning_rate_gbrbm = 1e-3
+	training_epochs = 200
+	cd_step = 50
+	batch_size = 32
+	input_size=16
+	visible_size = 500
+	hidden_size = 100
+	scheduler=cosine (solo per gbrbm)
+    optimizer=adam
+	Precision pos: 0.8896551724137931
+	Precision neg: 0.8870967741935484
+	Recall pos: 0.86
+	Recall neg: 0.9116022099447514
+	Accuracy: 0.8882175226586103
+	F1 score: 0.8745762711864407

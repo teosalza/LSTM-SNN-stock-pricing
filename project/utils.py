@@ -11,8 +11,11 @@ def create_window_dataset(dataset,wind_size):
     return np.array(x_wind),np.array(y_wind)
 
 
-def split_train_test(x_dset,y_dset,split_size):
+def split_train_test(x_dset,y_dset,split_size,validation=False):
     test_set_size = int(np.round(0.2*x_dset.shape[0]))  
     train_set_size = x_dset.shape[0] - (test_set_size)
+    if validation:
+        valid_size = int(np.round(0.1*train_set_size))
+        train_valid_set_size = train_set_size - valid_size
     return x_dset[:train_set_size],y_dset[:train_set_size],x_dset[train_set_size:],y_dset[train_set_size:]
 
