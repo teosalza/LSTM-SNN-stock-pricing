@@ -50,7 +50,7 @@ class GBRBM(torch.nn.Module):
 	@torch.no_grad()
 	def CD_grad(self,v):
 		# v = v.view(v.shape[0], -1)
-		prob_h, h, pos_eng = self.positive_energy(v)
+		prob_h, h, pos_eng = self.positive_gradient(v)
 
 		# negative gradient
 		v_neg = torch.randn_like(v)
@@ -102,7 +102,7 @@ class GBRBM(torch.nn.Module):
 		return h.mm(self.W.T) + self.mu
 
 	@torch.no_grad()
-	def positive_energy(self, v):
+	def positive_gradient(self, v):
 		prob_h = self.prob_h_given_v(v, self.get_var())
 		h = torch.bernoulli(prob_h)
 		pos_energy = self.energy_grad_param(v,h)

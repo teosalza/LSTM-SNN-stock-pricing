@@ -160,8 +160,8 @@ if __name__ == "__main__":
         loss_array.append(linear_loss.item())
         # y_axis.append(pred.mean().item())
         # y_actual.append(target.mean().item())
-        y_pred.append(pred[0][0].item())
-        y_actual.append(target[0][0].item())
+        y_pred.append(pred[0].detach().to("cpu").numpy())
+        y_actual.append(target[0].detach().to("cpu").numpy())
 
        
         pred_trend = []
@@ -220,12 +220,18 @@ if __name__ == "__main__":
     plt.show()
 
 
+    y_pred_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-3],np.array(y_pred)],axis=1))[:,-3:]
+    y_actual_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-3],np.array(y_actual)],axis=1))[:,-3:]
 
-    total_mape = mean_absolute_percentage_error(y_actual,y_pred)
-    total_mae = mean_absolute_error(y_actual,y_pred)
-    total_mse = mean_squared_error(y_actual,y_pred)
-    total_rmse = mean_squared_error(y_actual,y_pred,squared=False)
-    total_r2 = r2_score(y_actual,y_pred)
+    #for 1 day ahead
+    y_pred_transformed = y_pred_transformed[:,0]
+    y_actual_transformed = y_actual_transformed[:,0]
+
+    total_mape = mean_absolute_percentage_error(y_actual_transformed,y_pred_transformed)
+    total_mae = mean_absolute_error(y_actual_transformed,y_pred_transformed)
+    total_mse = mean_squared_error(y_actual_transformed,y_pred_transformed)
+    total_rmse = mean_squared_error(y_actual_transformed,y_pred_transformed,squared=False)
+    total_r2 = r2_score(y_actual_transformed,y_pred_transformed)
     print("MAPE: {}".format(total_mape))
     print("MAE: {}".format(total_mae))
     print("MSE: {}".format(total_mse))
@@ -233,3 +239,9 @@ if __name__ == "__main__":
     print("R2: {}".format(total_r2))
     plt.plot(np.arange(len(loss_array)),loss_array)
     plt.show()
+
+    plt.plot(x_axis,y_pred_transformed[:,0],label="Predicted")
+    plt.plot(x_axis,y_actual_transformed[:,0],label="Actual")
+    plt.legend(loc="upper left")
+    plt.show()
+    a=""
