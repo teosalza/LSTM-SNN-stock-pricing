@@ -139,3 +139,19 @@
 	Recall neg: 0.9116022099447514
 	Accuracy: 0.8882175226586103
 	F1 score: 0.8745762711864407
+
+
+#run 59
+	Current epoch :199 , current error: 0.0010347344214096665, current error gbrmb: 0.0011946705635637045
+	clipping = 10.0
+	learning_rate_lstm = 1e-4
+	learning_rate_gbrbm = 1e-3
+	training_epochs = 200
+	cd_step = 50
+	batch_size = 32
+	input_size=16
+	visible_size = 500
+	hidden_size = 100
+	scheduler=cosine (solo per gbrbm)
+    optimizer=adam
+

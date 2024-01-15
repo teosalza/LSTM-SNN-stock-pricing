@@ -14,6 +14,8 @@ import pandas as pd
 import os
 from utils import create_window_dataset,split_train_test
 from lstn_snn import LSTM_GBRBM
+from scipy.ndimage import shift
+
 
 def calculate_confusion_matrix(pred,actual):
     negative = 0
@@ -73,6 +75,7 @@ if __name__ == "__main__":
     print(y_test.shape)
 
     train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
+    # train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
 
@@ -82,7 +85,7 @@ if __name__ == "__main__":
             max_int = number
             model_weight_path = WEIGHT_DIR+"/"+entry
 
-    # model_weight_path = WEIGHT_DIR + "/"+"lstm-gbrbm_37.pt"
+    # model_weight_path = WEIGHT_DIR + "/"+"lstm-gbrbm_64.pt"
     
 
 
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     k = 3      
     input_size=16
     visible_size = 500
-    hidden_size = 100
+    hidden_size = 200
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -148,6 +151,7 @@ if __name__ == "__main__":
     old_pred = []
     old_actual = []
     #test section
+    one_day_ahead = True
     for ii, (data,target)  in enumerate(train_loader_test):
         
 
@@ -160,13 +164,23 @@ if __name__ == "__main__":
         loss_array.append(linear_loss.item())
         # y_axis.append(pred.mean().item())
         # y_actual.append(target.mean().item())
-        y_pred.append(pred[0].detach().to("cpu").numpy())
-        y_actual.append(target[0].detach().to("cpu").numpy())
+        if one_day_ahead:
+            y_pred.append(pred[0].detach().to("cpu").numpy()[0])
+            y_actual.append(target[0].detach().to("cpu").numpy()[0])
+        else:
+            y_pred.append(pred[0].detach().to("cpu").numpy())
+            y_actual.append(target[0].detach().to("cpu").numpy())
 
        
         pred_trend = []
         actual_trend = []
-        for i in range(3):
+        if one_day_ahead:
+            max_range = 1
+        else:
+            max_range = 3
+            
+        '''
+        for i in range(max_range):
             if i == 0:
                 if ii > 0:
                     if old_pred[0][0].item()-pred[0][i].item() > 0:
@@ -194,7 +208,10 @@ if __name__ == "__main__":
 
         old_pred = pred
         old_actual = target
+       '''
 
+    trend_pred = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
+    trend_actual = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
 
     tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
     precision_pos = tp/(tp+fp)
@@ -205,7 +222,7 @@ if __name__ == "__main__":
     f1_score = 2*precision_pos*recall_pos/(precision_pos+recall_pos)
     print("Precision pos: {}".format(precision_pos))
     print("Precision neg: {}".format(precision_neg))
-    print("Recall pos: {}".format(recall_pos))
+    print("Recall pos: {}".format(recall_pos))  
     print("Recall neg: {}".format(recall_ne))
     print("Accuracy: {}".format(accuracy))
     print("F1 score: {}".format(f1_score))

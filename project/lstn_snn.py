@@ -4,7 +4,7 @@ import numpy as np
 import sys
 from sklearn.preprocessing import StandardScaler
 import argparse
-import tqdm
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 from torchviz import make_dot, make_dot_from_trace
 import torch.nn.functional as F
@@ -12,7 +12,7 @@ from torch.autograd import grad
 import pandas as pd
 import os
 import math
-from utils import create_window_dataset,split_train_test
+from utils import create_window_dataset,split_train_test,split_train_test_valid
 
 
 
@@ -215,6 +215,7 @@ class LSTM_GBRBM(nn.Module):
 		self.loss_gbrbm = []
 		self.lr_list_lstm = []
 		self.lr_list_gbrbm = []
+		self.loss_valid = []
 
 	def eval(self):
 		self.lstm_layer.eval()
@@ -245,13 +246,14 @@ class LSTM_GBRBM(nn.Module):
 			else:
 				return torch.optim.lr_scheduler.ExponentialLR(self.optimizer_gbrbm, gamma=0.1)
 
-	def train(self,train_loader):
-		for epoch in range(self.epoch):
+	def train(self,train_loader,validation_loader=None):
+		for epoch in tqdm(range(self.epoch)):
 			print("Current epoch :{}".format(epoch),end="\r")
-			loss, loss_gbrbm = self.train_current_epoch(train_loader)
+			loss, loss_gbrbm,loss_valid = self.train_current_epoch(train_loader,validation_loader)
 			# return self.train_current_epoch(train_loader)
 			self.loss.append(loss)
 			self.loss_gbrbm.append(loss_gbrbm.item())
+			self.loss_valid.append(loss_valid)
 			if self.use_scheduler:
 				self.lr_list_lstm.append(self.optimizer_lstm.param_groups[0]["lr"])
 				self.lr_list_gbrbm.append(self.optimizer_gbrbm.param_groups[0]["lr"])
@@ -270,7 +272,7 @@ class LSTM_GBRBM(nn.Module):
 		pred = self.gbrbm(data_lstm)
 		return pred
 
-	def train_current_epoch(self,train_loader):
+	def train_current_epoch(self,train_loader,validation_loader=None):
 		self.lstm_layer.train()
 		self.gbrbm.train()
 
@@ -318,7 +320,23 @@ class LSTM_GBRBM(nn.Module):
 			if ii == len(train_loader) - 1:
 				recon_loss = self.gbrbm.reconstruction(data_lstm).item()
 
-		return [recon_loss,linear_loss]
+		validation_error = []
+		if validation_loader != None:
+			self.lstm_layer.eval()
+			self.gbrbm.eval()
+			with torch.no_grad():
+				for ii, (data,target)  in enumerate(validation_loader):
+					data = data.to(self.device)
+					target = target.to(self.device)
+
+					pred = self.forward(data)
+					# pred = pred[None,:]
+					linear_loss = self.criterion(pred,target)
+					validation_error.append(linear_loss.item())
+					
+
+		validation_error = np.array(validation_error).mean()
+		return [recon_loss,linear_loss,validation_error]
 
 
 
@@ -349,7 +367,9 @@ if __name__ == "__main__":
 	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
 	split_size = 0.8
-	x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size,validation=False)
+	valid_size = 0.1
+	x_train,y_train,x_valid,y_valid,x_test,y_test = split_train_test_valid(x_dset,y_dset,split_size,valid_size)
+	# x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size)
 
 	x_train = torch.from_numpy(x_train).to(torch.float)
 	y_train = torch.from_numpy(y_train).to(torch.float)
@@ -357,15 +377,23 @@ if __name__ == "__main__":
 	x_test = torch.from_numpy(x_test).to(torch.float)
 	y_test = torch.from_numpy(y_test).to(torch.float)
 
+	x_valid = torch.from_numpy(x_valid).to(torch.float)
+	y_valid = torch.from_numpy(y_valid).to(torch.float)
+
+
 	# scaled_dataset = pd.DataFrame(scaled_dataset)
 	# scaled_dataset.columns = dataset.columns
 	print("Shape of train and test datasets of window size of :{}".format(WINDOW_SIZE))
-	print(x_train.shape)
-	print(y_train.shape)
-	print(x_test.shape)
-	print(y_test.shape)
+	print("Train x size: {}".format(x_train.shape))
+	print("Train y size: {}".format(y_train.shape))	
+	print("Valid x size: {}".format(x_valid.shape))
+	print("Valid y size: {}".format(y_valid.shape))
+	print("Test x size: {}".format(x_test.shape))
+	print("Test y size: {}".format(y_test.shape))
+	
 
 	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = False)
+	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = False)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -373,13 +401,13 @@ if __name__ == "__main__":
 	clipping = 10.0
 	learning_rate_lstm = 1e-4
 	learning_rate_gbrbm = 1e-3
-	training_epochs = 200
+	training_epochs = 100
 	cd_step = 50
 	batch_size = 32
 	k = 3
 	input_size=16
 	visible_size = 500
-	hidden_size = 100 
+	hidden_size = 200 
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"
@@ -397,7 +425,7 @@ if __name__ == "__main__":
 	'''
 	scheduler_annelling="cosine_anneling"
 
-	model_lstm_gbrbm = LSTM_GBRBM(
+	model_lstm_gbrbm = LSTM_GBRBM(	
         input_size = input_size,
         visible_size = visible_size,
         hidden_size = hidden_size,
@@ -411,7 +439,7 @@ if __name__ == "__main__":
         learning_rate_gbrbm = learning_rate_gbrbm,
         cd_step = cd_step,
         device = device)
-	model_lstm_gbrbm.train(train_loader=train_loader)
+	model_lstm_gbrbm.train(train_loader=train_loader,validation_loader=validation_loader)
 
 	max_count = 0
 	for entry in os.listdir("models_weight"):
@@ -423,12 +451,16 @@ if __name__ == "__main__":
 	torch.save(model_lstm_gbrbm.state_dict(),"models_weight/lstm-gbrbm_{}.pt".format(max_count+1))
 
 	fig = plt.figure()
-	ax1 = fig.add_subplot(211)
-	ax2 = fig.add_subplot(212)
+	ax1 = fig.add_subplot(311)
+	ax2 = fig.add_subplot(312)
+	ax3 = fig.add_subplot(313)
+
 	ax1.title.set_text('Total error')
 	ax1.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss)
 	ax2.title.set_text('GBRBM error')
 	ax2.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss_gbrbm)
+	ax3.title.set_text('Validation Error')
+	ax3.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss_valid)
 	plt.show()
 
 	asd = "asd"
