@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 import sys
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score,mean_absolute_percentage_error
 import argparse
 import tqdm
@@ -13,7 +13,7 @@ from torch.autograd import grad
 import pandas as pd
 import os
 from utils import create_window_dataset,split_train_test
-from lstm import LSTM_GBRBM
+from gru_snn import GRU_GBRBM
 from scipy.ndimage import shift
 
 
@@ -24,6 +24,8 @@ def calculate_confusion_matrix(pred,actual):
     actual = np.concatenate([actual[0],np.array(actual[1:]).flatten()])
     # pred = np.array(pred[1:]).flatten()
     # pred = np.array(actual[1:]).flatten()
+    # pred = np.array(pred)
+    # actual = np.array(actual)
     tp = np.sum(np.logical_and(pred == positive, actual == positive))
     tn = np.sum(np.logical_and(pred == negative, actual == negative))
     fp = np.sum(np.logical_and(pred == positive, actual == negative))
@@ -57,6 +59,9 @@ if __name__ == "__main__":
 
     scaler = StandardScaler()
     scaled_dataset = scaler.fit_transform(dataset)
+    normal = MinMaxScaler(feature_range=(-1, 1))
+    scaled_dataset = normal.fit_transform(scaled_dataset)
+
     x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
     split_size = 0.8
@@ -77,7 +82,7 @@ if __name__ == "__main__":
     print(y_test.shape)
 
     train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
-    train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+    # train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
 
@@ -99,12 +104,12 @@ if __name__ == "__main__":
     learning_rate_lstm = 1e-3
     learning_rate_gbrbm = 1e-4
     training_epochs = 15
-    cd_step = 5
+    cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=9
-    visible_size = 500
-    hidden_size = 250
+    input_size=16
+    visible_size = 200
+    hidden_size = 100
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -122,7 +127,7 @@ if __name__ == "__main__":
     '''
     scheduler_annelling="exponential_lr"
 
-    model_lstm_gbrbm = LSTM_GBRBM(
+    model_lstm_gbrbm = GRU_GBRBM(
         input_size=input_size,
         visible_size=visible_size,
         hidden_size=hidden_size,
@@ -137,10 +142,10 @@ if __name__ == "__main__":
         cd_step=cd_step,
         device=device)
 
-    model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path,map_location="cpu"))
+    model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path))
     model_lstm_gbrbm.eval()
 
-    x_axis = np.arange(0,x_train.shape[0])
+    x_axis = np.arange(0,x_test.shape[0])
     y_pred = []
     y_actual=[]
 
@@ -185,18 +190,16 @@ if __name__ == "__main__":
         for i in range(max_range):
             if i == 0:
                 if ii > 0:
-                    if pred[0][i].item()-old_pred[0][0].item() > 0:
+                    if old_pred[0][0].item()-pred[0][i].item() > 0:
                         pred_trend.append(1)
                     else:
                         pred_trend.append(0)
 
-                    if target[0][i].item()-old_actual[0][0].item() > 0:
+                    if old_actual[0][0].item()-target[0][i].item() > 0:
                         actual_trend.append(1)
                     else:
                         actual_trend.append(0)
             else:
-
-                #è da sistemare
                 if pred[0][i-1].item()-pred[0][i].item() > 0:
                         pred_trend.append(1)
                 else:
@@ -217,7 +220,10 @@ if __name__ == "__main__":
     # trend_pred = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
     # trend_actual = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
 
-    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred[2:202],trend_actual[1:201])
+    # trend_actual = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
+    # trend_pred = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
+
+    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
     precision_pos = tp/(tp+fp)
     precision_neg = tn/(tn+fn)
     recall_pos = tp/(tp+fn)
@@ -243,8 +249,8 @@ if __name__ == "__main__":
     plt.show()
 
 
-    y_pred_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-3],np.array(y_pred)],axis=1))[:,-3:]
-    y_actual_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-3],np.array(y_actual)],axis=1))[:,-3:]
+    y_pred_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-1],np.expand_dims(np.array(y_pred),axis=1)],axis=1))[:,-1:]
+    y_actual_transformed = scaler.inverse_transform(np.concatenate([dataset.iloc[-x_test.shape[0]:,:-1],np.expand_dims(np.array(y_actual),axis=1)],axis=1))[:,-1:]
 
     #for 1 day ahead
     y_pred_transformed = y_pred_transformed[:,0]
@@ -255,7 +261,7 @@ if __name__ == "__main__":
     total_mse = mean_squared_error(y_actual_transformed,y_pred_transformed)
     total_rmse = mean_squared_error(y_actual_transformed,y_pred_transformed,squared=False)
     total_r2 = r2_score(y_actual_transformed,y_pred_transformed)
-    print("MAPE: {}".format(total_mape))
+    print("MAPE: {}".format(total_mape*100))
     print("MAE: {}".format(total_mae))
     print("MSE: {}".format(total_mse))
     print("RMSE: {}".format(total_rmse))

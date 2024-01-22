@@ -205,9 +205,9 @@ if __name__ == "__main__":
     # T_N2.name = "t_n2"
 
     # final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N,T_N1,T_N2]).T
-    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N]).T
+    # final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N]).T
     # final_dataframe = pd.DataFrame([SMA10,WMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,R,AD,CCI,T_N]).T
-    # final_dataframe = pd.DataFrame([OBV_1,SMA5,BIAS6,PSY12,ASY5,ASY4,ASY3,ASY2,ASY1,T_N]).T
+    final_dataframe = pd.DataFrame([OBV_1,SMA5,BIAS6,PSY12,ASY5,ASY4,ASY3,ASY2,ASY1,T_N]).T
     final_dataframe.dropna(inplace=True)
     final_dataframe.index = final_dataframe.index.tz_localize(None)
     final_dataframe.to_csv("{}{}.csv".format(OUTPUT_DIR,TICKER_NAME))
