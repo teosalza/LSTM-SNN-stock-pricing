@@ -33,6 +33,20 @@ def calculate_mom(df,windwow=10):
         mom[i] = df[i]-df[i-(windwow-1)]
     return mom
 
+def calculate_psy(close_price,window=12):
+    psy = close_price.copy()
+    psy.iloc[:] = None
+    el = close_price.rolling(window=window).apply(lambda x: np.sum(np.diff(x) > 0) + 1 if len(x) == window else np.nan)
+    return el
+
+def calculate_asy(close_price,window):
+    psy = close_price.copy()
+    psy.iloc[:] = None
+    el = close_price.rolling(window=window).apply(lambda x: np.sum(x)/window if len(x) == window else np.nan)
+    # for el in close_price.rolling(window):
+    return el
+
+
 def calculate_rsi(df,window=10,ema=False):
     rsi = df.copy()
     rsi["diff"] = rsi["Close"].diff(1)
@@ -90,15 +104,21 @@ if __name__ == "__main__":
     SMA10 = close_price.rolling(WINDOW_SIZE).mean()
     SMA10.name = "sma10"
 
+    SMA5 = close_price.rolling(5).mean()
+    SMA5.name = "sma5"
+
+    SMA6 = close_price.rolling(6).mean()
+    SMA6.name = "sma6"
+
     #weighted moving average 10 days
     weights = np.arange(1,11)
-    WMA10 = close_price.rolling(WINDOW_SIZE).apply(lambda x: np.sum(weights*x)) / sum(weights)
+    WMA10 = close_price.rolling(WINDOW_SIZE).apply(lambda x: np.sum(weights*x) / sum(weights))
     WMA10.name = "wma10"
 
     #exponential moving average 10 days
     smoothing = 2/11
-    # EMA10 = close_price.ewm(alpha=smoothing,adjust=False).mean()
-    EMA10 = calculate_ema(close_price,WINDOW_SIZE)
+    EMA10 = close_price.ewm(alpha=smoothing,adjust=False).mean()
+    # EMA10 = calculate_ema(close_price,WINDOW_SIZE)
     EMA10.name = "ema10"
 
     #Momentum 10 days
@@ -120,14 +140,14 @@ if __name__ == "__main__":
     STOCHASTIC_D.name = "stcd%"
 
     #Relative Strength Index (RSI)
-    # RSI2 = ta.rsi(close=close_price, length=10)
-    RSI = calculate_rsi(stock_price,WINDOW_SIZE)
+    RSI = ta.rsi(close=close_price, length=10)
+    # RSI = calculate_rsi(stock_price,WINDOW_SIZE)
 
     #Moving average convergence divergence
     # m_ema12 = close_price.ewm(span=12, adjust=False, min_periods=12).mean()
     # m_ema26 = close_price.ewm(span=26, adjust=False, min_periods=26).mean()
     # macd = m_ema12 - m_ema26
-    MACD = ta.macd(close=close_price, fast=12, slow=26, signal=9, append=True)["MACD_12_26_9"]
+    MACD = ta.macd(close=close_price, fast=12, slow=26, signal=10, append=True)["MACDs_12_26_10"]
     MACD.name = "macd"
 
     #Larry William % range oscillator
@@ -135,11 +155,11 @@ if __name__ == "__main__":
     R.name = "r"
 
     #Accumulation Distribution oscillator
-    AD = AccDistIndexIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,volume=stock_price["Volume"]).acc_dist_index()
+    AD = AccDistIndexIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price.shift(1),volume=stock_price["Volume"]).acc_dist_index()
     AD.name = "ad"
 
     #Commodity Channnel Index
-    CCI = CCIIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,window=WINDOW_SIZE).cci()
+    CCI = CCIIndicator(high=stock_price["High"],low=stock_price["Low"],close=close_price,window=2).cci()
 
     #Rate of change indicator 
     ROC = ROCIndicator(close=close_price,window=WINDOW_SIZE).roc()
@@ -147,12 +167,26 @@ if __name__ == "__main__":
     #On Balance Indicator
     OBV = OnBalanceVolumeIndicator(close=close_price,volume=stock_price["Volume"]).on_balance_volume()
 
+    omega = close_price.diff().apply(lambda x: -1 if x < 0 else 1)
+    OBV_1 = OBV.shift(1) + omega* stock_price["Volume"]
+
+    BIAS6 = (close_price-SMA6)/SMA6 * 100
+    PSY12 = calculate_psy(close_price)
+    PSY12 = PSY12/12*100
+
+    SY = np.log(close_price)/np.log(close_price.shift(1))*100
+    ASY5 = calculate_asy(SY,5)
+    ASY4 = calculate_asy(SY,4)
+    ASY3 = calculate_asy(SY,3)
+    ASY2 = calculate_asy(SY,2)
+    ASY1 = calculate_asy(SY,1)
+
     #Disparity index momentum
     DIS = calculate_disparity_index(close=close_price,sma_n=SMA10)
-    DIS.name = "ris"
+    DIS.name = "dis"
 
     #Bollinger bands
-    BB = BollingerBands(close=close_price,window=WINDOW_SIZE)
+    BB = BollingerBands(close=close_price,window=WINDOW_SIZE,window_dev=2)
     BB_LOW = BB.bollinger_lband()
     BB_HIGH = BB.bollinger_hband()
 
@@ -165,12 +199,16 @@ if __name__ == "__main__":
     
     T_N = close_price.shift(-1)
     T_N.name = "t_n"
-    T_N1 = close_price.shift(-2)
-    T_N1.name = "t_n1"
-    T_N2 = close_price.shift(-3)
-    T_N2.name = "t_n2"
+    # T_N1 = close_price.shift(-2)
+    # T_N1.name = "t_n1"
+    # T_N2 = close_price.shift(-3)close_price
+    # T_N2.name = "t_n2"
 
-    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N,T_N1,T_N2]).T
+    # final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N,T_N1,T_N2]).T
+    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N]).T
+    # final_dataframe = pd.DataFrame([SMA10,WMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,R,AD,CCI,T_N]).T
+    # final_dataframe = pd.DataFrame([OBV_1,SMA5,BIAS6,PSY12,ASY5,ASY4,ASY3,ASY2,ASY1,T_N]).T
+    final_dataframe.dropna(inplace=True)
     final_dataframe.index = final_dataframe.index.tz_localize(None)
     final_dataframe.to_csv("{}{}.csv".format(OUTPUT_DIR,TICKER_NAME))
 
