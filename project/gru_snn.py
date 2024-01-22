@@ -173,10 +173,14 @@ class GRU_module(nn.Module):
 		self.hidden_size = hidden_size
 		self.device = device
 		self.lstm1 = nn.GRU(self.input_size, self.hidden_size,batch_first=True).to(device)
+		self.dropout = nn.Dropout(0.2)
+		self.lstm2 = nn.GRU(self.hidden_size, self.hidden_size,batch_first=True).to(device)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		out,h_n = self.lstm1(x, h_t)
+		out = self.dropout(out)
+		out,h_n = self.lstm2(out,h_n)
 
 		return out[:,-1,:]
 		# return out,h_n,h_n
@@ -382,9 +386,9 @@ if __name__ == "__main__":
 	dataset = dataset.iloc[:,1:]
 
 	scaler = StandardScaler()
-	scaled_dataset = scaler.fit_transform(dataset)
+	# scaled_dataset = scaler.fit_transform(dataset)
 	normal = MinMaxScaler(feature_range=(-1, 1))
-	scaled_dataset = normal.fit_transform(scaled_dataset)
+	scaled_dataset = normal.fit_transform(dataset)
 
 	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
@@ -414,8 +418,8 @@ if __name__ == "__main__":
 	print("Test y size: {}".format(y_test.shape))
 	
 
-	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
-	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = False)
+	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = False)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -427,9 +431,9 @@ if __name__ == "__main__":
 	cd_step = 2
 	batch_size = 32
 	k = 3
-	input_size = 16
-	visible_size = 200
-	hidden_size = 100
+	input_size = 9
+	visible_size = 100
+	hidden_size = 50
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"

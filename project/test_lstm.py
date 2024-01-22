@@ -99,12 +99,12 @@ if __name__ == "__main__":
     learning_rate_lstm = 1e-3
     learning_rate_gbrbm = 1e-4
     training_epochs = 15
-    cd_step = 5
+    cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=9
-    visible_size = 500
-    hidden_size = 250
+    input_size=16
+    visible_size = 200
+    hidden_size = 100
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"

@@ -30,6 +30,7 @@ class GBRBM(torch.nn.Module):
 
 		
 		self.linear_layer = nn.Linear(hidden_size,1).to(self.device)
+		self.dropout = nn.Dropout(0.1)
 		self.relu = nn.ReLU()
 		self.linear_layer1 = nn.Linear(50,1).to(self.device)
 		self.W = nn.Parameter(torch.Tensor(visible_size, hidden_size).to(self.device))
@@ -146,7 +147,7 @@ class GBRBM(torch.nn.Module):
         # forward sampling
 		prob_h = self.prob_h_given_v(v, var)
 		# return self.relu(self.linear_layer(prob_h))
-		return self.linear_layer(prob_h)
+		return self.linear_layer(self.dropout(prob_h))
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
 	def forward(self,data):
@@ -162,7 +163,7 @@ class GBRBM(torch.nn.Module):
         # forward sampling
 		prob_h = self.prob_h_given_v(data, var).requires_grad_()
 		# return self.relu(self.linear_layer(prob_h))
-		return self.linear_layer(prob_h)
+		return self.linear_layer(self.dropout(prob_h))
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
 class LSTM_module(nn.Module):
@@ -171,7 +172,7 @@ class LSTM_module(nn.Module):
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True,dropout=0.2).to(device)
+		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
@@ -212,6 +213,7 @@ class LSTM_GBRBM(nn.Module):
 			device=self.device
 			).to(device)
 
+		self.dropout = nn.Dropout(0.3)
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
@@ -278,6 +280,7 @@ class LSTM_GBRBM(nn.Module):
 
 	def forward(self,data):
 		data_lstm = self.lstm_layer(data)
+		data_lstm = self.dropout(data_lstm)
 		pred = self.gbrbm(data_lstm)
 		return pred
 
@@ -381,9 +384,9 @@ if __name__ == "__main__":
 	dataset = dataset.iloc[:,1:]
 
 	scaler = StandardScaler()
-	scaled_dataset = scaler.fit_transform(dataset)
+	# scaled_dataset = scaler.fit_transform(dataset)
 	normal = MinMaxScaler(feature_range=(-1, 1))
-	scaled_dataset = normal.fit_transform(scaled_dataset)
+	scaled_dataset = normal.fit_transform(dataset)
 
 	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
@@ -422,13 +425,13 @@ if __name__ == "__main__":
 	clipping = 10.0
 	learning_rate_lstm = 1e-4
 	learning_rate_gbrbm = 1e-3
-	training_epochs = 100
+	training_epochs = 50
 	cd_step = 2
 	batch_size = 32
 	k = 3
-	input_size = 16
+	input_size = 9
 	visible_size = 50
-	hidden_size = 100 
+	hidden_size = 25 
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"

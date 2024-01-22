@@ -15,6 +15,7 @@ import os
 from utils import create_window_dataset,split_train_test
 from lstn_snn import LSTM_GBRBM
 from scipy.ndimage import shift
+from sklearn.metrics import accuracy_score
 
 
 def calculate_confusion_matrix(pred,actual):
@@ -58,9 +59,9 @@ if __name__ == "__main__":
     dataset = dataset.iloc[:,1:]
 
     scaler = StandardScaler()
-    scaled_dataset = scaler.fit_transform(dataset)
+    # scaled_dataset = scaler.fit_transform(dataset)
     normal = MinMaxScaler(feature_range=(-1, 1))
-    scaled_dataset = normal.fit_transform(scaled_dataset)
+    scaled_dataset = normal.fit_transform(dataset)
 
     x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
@@ -81,8 +82,8 @@ if __name__ == "__main__":
     print(x_test.shape) 
     print(y_test.shape)
 
-    # train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
-    train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+    train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
+    train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
 
@@ -107,9 +108,9 @@ if __name__ == "__main__":
     cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=16
+    input_size=9
     visible_size = 50
-    hidden_size = 100
+    hidden_size = 25
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -145,13 +146,70 @@ if __name__ == "__main__":
     model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path))
     model_lstm_gbrbm.eval()
 
-    x_axis = np.arange(0,x_train.shape[0])
+    x_axis = np.arange(0,x_test.shape[0])
     y_pred = []
     y_actual=[]
 
-    trend_pred = []
-    trend_actual = []
+   
+    # for ii, (data,target)  in enumerate(train_loader_test):
+    #     data = data.to(model_lstm_gbrbm.device)
+    #     target = target.to(model_lstm_gbrbm.device) 
 
+    #     pred = model_lstm_gbrbm.forward(data)
+
+    #     linear_loss = model_lstm_gbrbm.criterion(pred,target)
+    #     loss_array.append(linear_loss.item())
+    #     # y_axis.append(pred.mean().item())
+    #     # y_actual.append(target.mean().item())
+    #     if one_day_ahead:
+    #         y_pred.append(pred[0].detach().to("cpu").numpy()[0])
+    #         y_actual.append(target[0].detach().to("cpu").numpy()[0])
+    #     else:
+    #         y_pred.append(pred[0].detach().to("cpu").numpy())
+    #         y_actual.append(target[0].detach().to("cpu").numpy())
+
+       
+    #     pred_trend = []
+    #     actual_trend = []
+    #     if one_day_ahead:
+    #         max_range = 1
+    #     else:
+    #         max_range = 3
+            
+        
+    #     for i in range(max_range):
+    #         if i == 0:
+    #             if ii > 0:
+    #                 if old_pred[0][0].item()-pred[0][i].item() > 0:
+    #                     pred_trend.append(1)
+    #                 else:
+    #                     pred_trend.append(0)
+
+    #                 if old_actual[0][0].item()-target[0][i].item() > 0:
+    #                     actual_trend.append(1)
+    #                 else:
+    #                     actual_trend.append(0)
+    #         else:
+    #             if pred[0][i-1].item()-pred[0][i].item() > 0:
+    #                     pred_trend.append(1)
+    #             else:
+    #                 pred_trend.append(0)
+            
+    #             if target[0][i-1].item()-target[0][i].item() > 0:
+    #                 actual_trend.append(1)
+    #             else:
+    #                 actual_trend.append(0)
+        
+    #     trend_pred.append(pred_trend)
+    #     trend_actual.append(actual_trend)
+
+    #     old_pred = target
+    #     old_actual = target
+       
+
+
+    trend_pred =[]
+    trend_actual =[]
 
     loss_array = []
 
@@ -220,10 +278,10 @@ if __name__ == "__main__":
     # trend_pred = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
     # trend_actual = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
 
-    # trend_actual = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
-    # trend_pred = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
+    trend_actual1 = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
+    trend_pred1 = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
 
-    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred[2:102],trend_actual[1:101])
+    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
     precision_pos = tp/(tp+fp)
     precision_neg = tn/(tn+fn)
     recall_pos = tp/(tp+fn)

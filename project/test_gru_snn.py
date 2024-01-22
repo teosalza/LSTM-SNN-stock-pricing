@@ -15,6 +15,7 @@ import os
 from utils import create_window_dataset,split_train_test
 from gru_snn import GRU_GBRBM
 from scipy.ndimage import shift
+from sklearn.metrics import accuracy_score
 
 
 def calculate_confusion_matrix(pred,actual):
@@ -58,9 +59,9 @@ if __name__ == "__main__":
     dataset = dataset.iloc[:,1:]
 
     scaler = StandardScaler()
-    scaled_dataset = scaler.fit_transform(dataset)
+    # scaled_dataset = scaler.fit_transform(dataset)
     normal = MinMaxScaler(feature_range=(-1, 1))
-    scaled_dataset = normal.fit_transform(scaled_dataset)
+    scaled_dataset = normal.fit_transform(dataset)
 
     x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
 
@@ -101,15 +102,15 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # device="cpu"
     clipping = 10.0
-    learning_rate_lstm = 1e-3
-    learning_rate_gbrbm = 1e-4
+    learning_rate_lstm = 1e-4
+    learning_rate_gbrbm = 1e-3
     training_epochs = 15
     cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=16
-    visible_size = 200
-    hidden_size = 100
+    input_size=9
+    visible_size = 100
+    hidden_size = 50
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -220,8 +221,8 @@ if __name__ == "__main__":
     # trend_pred = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
     # trend_actual = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
 
-    # trend_actual = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
-    # trend_pred = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
+    trend_actual1 = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
+    trend_pred1 = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
 
     tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
     precision_pos = tp/(tp+fp)
