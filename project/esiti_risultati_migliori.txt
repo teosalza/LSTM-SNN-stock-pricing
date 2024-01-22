@@ -155,3 +155,12 @@
 	scheduler=cosine (solo per gbrbm)
     optimizer=adam
 
+
+
+#run 65 best trend circa 56%
+
+#run 67 Accuracy 54%, low sme
+
+#run 82 with different dataset, very low rmse accuracy 45% not good
+
+

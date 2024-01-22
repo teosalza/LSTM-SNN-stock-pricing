@@ -6,8 +6,8 @@ def create_window_dataset(dataset,wind_size):
     y_wind = []
     for i in range(wind_size,dataset.shape[0]):
         curr = dataset[i-wind_size:i]
-        x_wind.append(curr[:,:-3])
-        y_wind.append(curr[-1,-3:])
+        x_wind.append(curr[:,:-1])
+        y_wind.append(curr[-1,-1:])
     return np.array(x_wind),np.array(y_wind)
 
 

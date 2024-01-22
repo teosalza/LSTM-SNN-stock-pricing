@@ -15,8 +15,9 @@
             //     "--start-interval-date","2007-01-23",
             //     "--end-interval-date","2013-12-30",
             //     "--output-dir", "./datasets/stock_prices/nikkei_225/"]
-            "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225.csv","--window-size","15","--weight-dir","models_weight"]
-            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225.csv","--window-size","15"]
+            "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","60","--weight-dir","models_weight"]
+            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225.csv","--window-size","30","--weight-dir","models_weight_lstm"]
+            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","60"]
         }
     ]
 }
