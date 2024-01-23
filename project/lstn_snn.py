@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from torch.autograd import grad
 import pandas as pd
 import os
+from sklearn.model_selection import KFold
 import math
 from utils import create_window_dataset,split_train_test,split_train_test_valid
 
@@ -172,7 +173,7 @@ class LSTM_module(nn.Module):
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
+		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True,dropout=0.5).to(device)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
@@ -197,7 +198,7 @@ class LSTM_GBRBM(nn.Module):
 		self.cd_step = cd_step
 		self.device=device
 		self.dot = ""
-		self.use_scheduler = True
+		self.use_scheduler = False
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
 		self.lstm_layer = LSTM_module(
@@ -213,7 +214,7 @@ class LSTM_GBRBM(nn.Module):
 			device=self.device
 			).to(device)
 
-		self.dropout = nn.Dropout(0.3)
+		self.dropout = nn.Dropout(0.15)
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
@@ -236,12 +237,12 @@ class LSTM_GBRBM(nn.Module):
 	def get_optimizer(self,optimizer_name,type):
 		if optimizer_name=="adam":
 			if type == "lstm":
-				return torch.optim.Adam(self.lstm_layer.parameters(), lr=self.learning_rate_lstm)
+				return torch.optim.Adam(self.lstm_layer.parameters(), lr=self.learning_rate_lstm,weight_decay=0.01)
 			else:
-				return torch.optim.Adam(self.gbrbm.parameters(), lr=self.learning_rate_gbrbm)
+				return torch.optim.Adam(self.gbrbm.parameters(), lr=self.learning_rate_gbrbm,weight_decay=0.01)
 		else:
 			if type == "lstm":
-				return torch.optim.SGD(self.lstm_layer.parameters(), lr=self.learning_rate_lstm)
+				return torch.optim.SGD(self.lstm_layer.parameters(), lr=self.learning_rate_lstm,weight_decay=0.01)
 			else:
 				return torch.optim.SGD(self.gbrbm.parameters(), lr=self.learning_rate_gbrbm)
 
@@ -280,18 +281,22 @@ class LSTM_GBRBM(nn.Module):
 
 	def forward(self,data):
 		data_lstm = self.lstm_layer(data)
-		data_lstm = self.dropout(data_lstm)
+		# data_lstm = self.dropout(data_lstm)
 		pred = self.gbrbm(data_lstm)
 		return pred
 
 	def train_current_epoch(self,train_loader,validation_loader=None):
 		self.lstm_layer.train()
 		self.gbrbm.train()
+		# x_train = train_loader[0]
+		# y_train = train_loader[1]
 
 		loss_vet = []
 		loss_grb_vet = []
+		kfold =KFold(n_splits=10,shuffle=True)
 
 		for ii, (data,target)  in enumerate(train_loader):
+		# for train_index, test_index in kfold.split(x_train, y_train):  
 			self.optimizer_lstm.zero_grad()
 			self.optimizer_gbrbm.zero_grad()
 
@@ -303,6 +308,8 @@ class LSTM_GBRBM(nn.Module):
 			# pred = pred[None,:]
 			linear_loss = self.criterion(pred,target)
 			loss_vet.append(linear_loss.item())
+
+			
 
 			# self.dot = make_dot(pred.mean(),params=dict(self.named_parameters()))
 
@@ -345,6 +352,8 @@ class LSTM_GBRBM(nn.Module):
 			self.lstm_layer.eval()
 			self.gbrbm.eval()
 			with torch.no_grad():
+				list_val_y = []
+				list_target_y = []
 				for ii, (data,target)  in enumerate(validation_loader):
 					data = data.to(self.device)
 					target = target.to(self.device)
@@ -353,8 +362,16 @@ class LSTM_GBRBM(nn.Module):
 					# pred = pred[None,:]
 					linear_loss = self.criterion(pred,target)
 					validation_error.append(linear_loss.item())
-					
 
+					for i in range(8):
+						list_val_y.append(pred[i][0].item())
+						list_target_y.append(target[i][0].item())
+						
+					
+				# plt.plot(np.arange(len(list_val_y)),list_val_y)
+				# plt.plot(np.arange(len(list_val_y)),list_target_y)
+				# plt.show()
+					
 		validation_error = np.array(validation_error).mean()
 		return [np.array(loss_grb_vet).mean(),np.array(loss_vet).mean(),validation_error]
 		# return [recon_loss,linear_loss,validation_error]
@@ -416,8 +433,8 @@ if __name__ == "__main__":
 	print("Test y size: {}".format(y_test.shape))
 	
 
-	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = True)
-	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = True)
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
+	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -425,13 +442,13 @@ if __name__ == "__main__":
 	clipping = 10.0
 	learning_rate_lstm = 1e-4
 	learning_rate_gbrbm = 1e-3
-	training_epochs = 50
+	training_epochs = 40
 	cd_step = 2
-	batch_size = 32
+	batch_size = 16
 	k = 3
-	input_size = 9
-	visible_size = 50
-	hidden_size = 25 
+	input_size = 16
+	visible_size = 100
+	hidden_size = 50 
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"

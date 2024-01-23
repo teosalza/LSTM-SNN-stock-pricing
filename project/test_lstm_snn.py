@@ -83,7 +83,7 @@ if __name__ == "__main__":
     print(y_test.shape)
 
     train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
-    train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+    train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
 
@@ -108,9 +108,9 @@ if __name__ == "__main__":
     cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=9
-    visible_size = 50
-    hidden_size = 25
+    input_size=16
+    visible_size = 100
+    hidden_size = 50
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -143,10 +143,10 @@ if __name__ == "__main__":
         cd_step=cd_step,
         device=device)
 
-    model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path))
+    model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path,map_location="cpu"))
     model_lstm_gbrbm.eval()
 
-    x_axis = np.arange(0,x_test.shape[0])
+    x_axis = np.arange(0,x_train.shape[0])
     y_pred = []
     y_actual=[]
 
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     trend_actual1 = [0 if el < 0 else 1 for el in (np.array(y_actual) - np.roll(np.array(y_actual),1))] 
     trend_pred1 = [0 if el < 0 else 1 for el in (np.array(y_pred) - np.roll(np.array(y_pred),1))] 
 
-    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
+    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred[2:202],trend_actual[1:201])
     precision_pos = tp/(tp+fp)
     precision_neg = tn/(tn+fn)
     recall_pos = tp/(tp+fn)
