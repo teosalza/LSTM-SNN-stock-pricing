@@ -23,15 +23,40 @@ class LSTM_encoder(nn.Module):
 		self.hidden_size = hidden_size
 		self.device = device
 		self.n_layers = n_layers
-		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.n_layers, batch_first=True).to(device)
+		self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.n_layers, batch_first=True).to(device)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		c_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
-		out,(h_n,c_n) = self.lstm1(x, (h_t, c_t))
+		out,self.hidden = self.lstm(x, (h_t, c_t))
 
-		return out[:,-1,:]
+		return out, self.hidden 
 		# return out,h_n,h_n
+	
+class LSTM_decoder(nn.Module):
+	def __init__(self,input_size=10,hidden_size=500,n_layers=1,device="cpu"):
+		super(LSTM_decoder, self).__init__()
+		self.input_size = input_size
+		self.hidden_size = hidden_size
+		self.device = device
+		self.n_layers = n_layers
+		self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.n_layers, batch_first=True).to(device)
+		self.linear = nn.Linear(hidden_size, input_size).to(device) 
+
+	def forward(self, x_input, encoder_hidden_states):
+		'''        
+		: param x_input:                    should be 2D (batch_size, input_size)
+		: param encoder_hidden_states:      hidden states
+		: return output, hidden:            output gives all the hidden states in the sequence;
+		:                                   hidden gives the hidden state and cell state for the last
+		:                                   element in the sequence 
+
+		'''
+
+		lstm_out, self.hidden = self.lstm(x_input.unsqueeze(0), encoder_hidden_states)
+		output = self.linear(lstm_out.squeeze(0))     
+
+		return output, self.hidden
 
 class ENC_DEC_LSTM(nn.Module):
 	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,device="cpu"):
@@ -51,14 +76,8 @@ class ENC_DEC_LSTM(nn.Module):
 		self.use_scheduler = True
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
-		self.lstm_layer = LSTM_module(
-			input_size=self.input_size,
-			hidden_size=self.visible_size,
-			device=self.device
-			)
+		self.encoder_layer = LSTM_encoder()
 		
-		self.linear1 = nn.Linear(visible_size,hidden_size,device=self.device)
-		self.linear2 = nn.Linear(hidden_size,1,device=self.device)
 
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
