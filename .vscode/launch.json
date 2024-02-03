@@ -11,15 +11,16 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            // "args":["--ticker-name","^N225",   
-            //     "--start-interval-date","2007-01-23",
-            //     "--end-interval-date","2013-12-30",
-            //     "--output-dir", "./datasets/stock_prices/nikkei_225/"]
-            "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type2.csv","--window-size","10","--weight-dir","models_weight_ann"]
+            "args":["--ticker-name","^N225",   
+                "--start-interval-date","2007-01-23",
+                "--end-interval-date","2013-12-30",
+                "--output-dir", "./datasets/stock_prices/nikkei_225/"]
+            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","15","--weight-dir","models_weight_enc_dec_lstm"]
+            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type2.csv","--window-size","10","--weight-dir","models_weight_ann"]
             // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type2.csv","--window-size","5","--weight-dir","models_weight_gru"]
             // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","30","--weight-dir","models_weight"]
             // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","15","--weight-dir","models_weight_lstm"]
-            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type2.csv","--window-size","10"]
+            // "args":["--dataset-name","./datasets/stock_prices/nikkei_225/^N225_type1.csv","--window-size","15"]
         }
     ]
 }
