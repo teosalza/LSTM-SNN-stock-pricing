@@ -197,17 +197,30 @@ if __name__ == "__main__":
     # T_N2 = close_price.shift(-2)
     # T_N2.name = "t_n2"
     
-    T_N = close_price.shift(-1)
+    close_trend = close_price.shift(-1) - close_price
+    close_trend[close_trend >= 0] = 1
+    close_trend[close_trend < 0] = 0
+    T_N = close_trend
     T_N.name = "t_n"
+
+    # T_N = close_price
+    # T_N.name = "t_n"
+    # T_N1 = close_price.shift(-1)
+    # T_N1.name = "t_n1"
+    # T_N2 = close_price.shift(-2)
+    # T_N2.name = "t_n2"
+
+    # T_N = close_price.shift(-1)
+    # T_N.name = "t_n"
     # T_N1 = close_price.shift(-2)
     # T_N1.name = "t_n1"
-    # T_N2 = close_price.shift(-3)close_price
+    # T_N2 = close_price.shift(-3)
     # T_N2.name = "t_n2"
 
     # final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N,T_N1,T_N2]).T
-    # final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N]).T
+    final_dataframe = pd.DataFrame([SMA10,WMA10,EMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,MACD,R,AD,CCI,ROC,OBV,DIS,BB_LOW,BB_HIGH,T_N]).T
     # final_dataframe = pd.DataFrame([SMA10,WMA10,MOM,STOCHASTIC_K,STOCHASTIC_D,RSI,R,AD,CCI,T_N]).T
-    final_dataframe = pd.DataFrame([OBV_1,SMA5,BIAS6,PSY12,ASY5,ASY4,ASY3,ASY2,ASY1,T_N]).T
+    # final_dataframe = pd.DataFrame([OBV_1,SMA5,BIAS6,PSY12,ASY5,ASY4,ASY3,ASY2,ASY1,T_N]).T
     final_dataframe.dropna(inplace=True)
     final_dataframe.index = final_dataframe.index.tz_localize(None)
     final_dataframe.to_csv("{}{}.csv".format(OUTPUT_DIR,TICKER_NAME))

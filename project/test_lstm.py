@@ -15,6 +15,9 @@ import os
 from utils import create_window_dataset,split_train_test
 from lstm import LSTM_GBRBM
 from scipy.ndimage import shift
+from sklearn.metrics import accuracy_score
+from sklearn.decomposition import PCA
+
 
 
 def calculate_confusion_matrix(pred,actual):
@@ -55,9 +58,13 @@ if __name__ == "__main__":
     dataset.index = dataset["Date"]
     dataset = dataset.iloc[:,1:]
 
+
+    # #Test meno feautures
+    # dataset = dataset.loc[:,["wma10","RSI_10","t_n"]]
+
     scaler = StandardScaler()
     scaled_dataset = scaler.fit_transform(dataset)
-    x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
+    x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE,y_size=1)
 
     split_size = 0.8
     x_train,y_train,x_test,y_test = split_train_test(x_dset,y_dset,split_size)
@@ -77,7 +84,7 @@ if __name__ == "__main__":
     print(y_test.shape)
 
     train_loader_test = torch.utils.data.DataLoader(list(zip(x_test,y_test)),batch_size = 1,shuffle = False)
-    train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
+    # train_loader_test = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 1,shuffle = False)
     model_weight_path = ""
     max_int = 0
 
@@ -102,9 +109,9 @@ if __name__ == "__main__":
     cd_step = 2
     batch_size = 1
     k = 3      
-    input_size=16
-    visible_size = 200
-    hidden_size = 100
+    input_size=2
+    visible_size = 50
+    hidden_size = 50
 
     '''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
     optimizer ="sdg"
@@ -140,7 +147,7 @@ if __name__ == "__main__":
     model_lstm_gbrbm.load_state_dict(torch.load(model_weight_path,map_location="cpu"))
     model_lstm_gbrbm.eval()
 
-    x_axis = np.arange(0,x_train.shape[0])
+    x_axis = np.arange(0,x_test.shape[0])
     y_pred = []
     y_actual=[]
 
@@ -214,10 +221,10 @@ if __name__ == "__main__":
         old_actual = target
        
 
-    # trend_pred = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
-    # trend_actual = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
+    trend_pred1 = [[1] if el > 0 else [0] for el in (shift(y_pred,-1,cval=np.NaN) - y_pred)]
+    trend_actual1 = [[1] if el > 0 else [0] for el in (shift(y_actual,-1,cval=np.NaN) - y_actual)]
 
-    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred[2:202],trend_actual[1:201])
+    tp,tn,fp,fn = calculate_confusion_matrix(trend_pred,trend_actual)
     precision_pos = tp/(tp+fp)
     precision_neg = tn/(tn+fn)
     recall_pos = tp/(tp+fn)

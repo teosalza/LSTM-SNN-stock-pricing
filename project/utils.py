@@ -1,13 +1,13 @@
 
 import numpy as np 
 
-def create_window_dataset(dataset,wind_size):
+def create_window_dataset(dataset,wind_size,y_size=1):
     x_wind = []
     y_wind = []
     for i in range(wind_size,dataset.shape[0]):
         curr = dataset[i-wind_size:i]
-        x_wind.append(curr[:,:-1])
-        y_wind.append(curr[-1,-1:])
+        x_wind.append(curr[:,:-y_size])
+        y_wind.append(curr[-1,-y_size:])
     return np.array(x_wind),np.array(y_wind)
 
 

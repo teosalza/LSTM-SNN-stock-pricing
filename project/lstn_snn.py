@@ -14,6 +14,7 @@ import os
 from sklearn.model_selection import KFold
 import math
 from utils import create_window_dataset,split_train_test,split_train_test_valid
+from sklearn.decomposition import PCA
 
 
 
@@ -173,7 +174,7 @@ class LSTM_module(nn.Module):
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True,dropout=0.5).to(device)
+		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True,dropout=0.2).to(device)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
@@ -363,9 +364,9 @@ class LSTM_GBRBM(nn.Module):
 					linear_loss = self.criterion(pred,target)
 					validation_error.append(linear_loss.item())
 
-					for i in range(8):
-						list_val_y.append(pred[i][0].item())
-						list_target_y.append(target[i][0].item())
+					for i in range(pred.shape[0]):
+						list_val_y.append(pred[i].numpy())
+						list_target_y.append(target[i].numpy())
 						
 					
 				# plt.plot(np.arange(len(list_val_y)),list_val_y)
@@ -399,13 +400,19 @@ if __name__ == "__main__":
 	dataset.dropna(inplace=True)
 	dataset.index = dataset["Date"]
 	dataset = dataset.iloc[:,1:]
+	
 
 	scaler = StandardScaler()
-	# scaled_dataset = scaler.fit_transform(dataset)
-	normal = MinMaxScaler(feature_range=(-1, 1))
-	scaled_dataset = normal.fit_transform(dataset)
+	scaled_dataset = scaler.fit_transform(dataset)
+	# normal = MinMaxScaler(feature_range=(-1, 1))
+	# scaled_dataset = normal.fit_transform(dataset)
 
-	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
+
+	# pca = PCA(n_components=2)
+	# pca_dset = pca.fit_transform(scaled_dataset[:,:-1])
+	# scaled_dataset = np.hstack((pca_dset,np.expand_dims(scaled_dataset[:,-1],axis=1)))
+
+	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE,y_size=1)
 
 	split_size = 0.8
 	valid_size = 0.1
@@ -433,22 +440,22 @@ if __name__ == "__main__":
 	print("Test y size: {}".format(y_test.shape))
 	
 
-	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
-	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = True)
+	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 30,shuffle = True)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	# device="cpu"
 	clipping = 10.0
-	learning_rate_lstm = 1e-4
+	learning_rate_lstm = 1e-2
 	learning_rate_gbrbm = 1e-3
 	training_epochs = 40
-	cd_step = 2
+	cd_step = 5
 	batch_size = 16
 	k = 3
 	input_size = 16
-	visible_size = 100
-	hidden_size = 50 
+	visible_size = 50
+	hidden_size = 50
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"

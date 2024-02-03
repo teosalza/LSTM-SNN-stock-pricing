@@ -23,13 +23,23 @@ class LSTM_module(nn.Module):
 		self.hidden_size = hidden_size
 		self.device = device
 		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
+		self.drop1 = nn.Dropout(0.2)
+		self.lstm2 = nn.LSTM(self.hidden_size, self.hidden_size,batch_first=True).to(device)
+		self.drop2 = nn.Dropout(0.2)
+		self.lstm3 = nn.LSTM(self.hidden_size, self.hidden_size,batch_first=True).to(device)
+		self.drop3 = nn.Dropout(0.2)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		c_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		out,(h_n,c_n) = self.lstm1(x, (h_t, c_t))
+		out = self.drop1(out)
+		out2,(h_2,c_2) = self.lstm2(out,(h_n,c_n)) 
+		out2 = self.drop2(out2)
+		out3,(h_3,c_3) = self.lstm3(out,(h_2,c_2)) 
+		out3 = self.drop2(out3)
 
-		return out[:,-1,:]
+		return out3[:,-1,:]
 		# return out,h_n,h_n
 
 class LSTM_GBRBM(nn.Module):
@@ -56,8 +66,7 @@ class LSTM_GBRBM(nn.Module):
 			device=self.device
 			)
 		
-		self.linear1 = nn.Linear(visible_size,hidden_size,device=self.device)
-		self.linear2 = nn.Linear(hidden_size,1,device=self.device)
+		self.linear1 = nn.Linear(visible_size,3,device=self.device)
 
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
@@ -91,12 +100,14 @@ class LSTM_GBRBM(nn.Module):
 
 	def predict(self,data):
 		data_lstm = self.lstm_layer(data)
-		pred = self.linear2(self.linear1(data))
+		# pred = self.linear2(self.linear1(data))
+		pred = self.linear1(data)
 		return pred.detach().numpy()
 
 	def forward(self,data):
 		data_lstm = self.lstm_layer(data)
-		pred = self.linear2(self.linear1(data_lstm))
+		# pred = self.linear2(self.linear1(data_lstm))
+		pred = self.linear1(data_lstm)
 		return pred
 
 	def train_current_epoch(self,train_loader,validation_loader=None):
@@ -166,9 +177,12 @@ if __name__ == "__main__":
 	dataset.index = dataset["Date"]
 	dataset = dataset.iloc[:,1:]
 
+	# #Test meno feautures
+	# dataset = dataset.loc[:,["wma10","RSI_10","t_n"]]
+
 	scaler = StandardScaler()
 	scaled_dataset = scaler.fit_transform(dataset)
-	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE)
+	x_dset,y_dset = create_window_dataset(scaled_dataset,WINDOW_SIZE,y_size=3)
 
 	split_size = 0.8
 	valid_size = 0.1
@@ -196,22 +210,22 @@ if __name__ == "__main__":
 	print("Test y size: {}".format(y_test.shape))
 	
 
-	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = True)
-	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = True)
+	train_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
+	validation_loader = torch.utils.data.DataLoader(list(zip(x_train,y_train)),batch_size = 16,shuffle = False)
 
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	# device="cpu"
 	clipping = 10.0
-	learning_rate_lstm = 1e-3
+	learning_rate_lstm = 1e-4
 	learning_rate_gbrbm = 1e-2
 	training_epochs = 50
 	cd_step = 10
 	batch_size = 32
 	k = 3
-	input_size = 9
-	visible_size = 500
-	hidden_size = 250 
+	input_size = 16
+	visible_size = 50
+	hidden_size = 50 
 
 	'''optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)'''
 	optimizer ="adam"
