@@ -197,8 +197,18 @@ if __name__ == "__main__":
     # T_N2 = close_price.shift(-2)
     # T_N2.name = "t_n2"
     
-    T_N = close_price
+    close_trend = close_price.shift(-1) - close_price
+    close_trend[close_trend >= 0] = 1
+    close_trend[close_trend < 0] = 0
+    T_N = close_trend
     T_N.name = "t_n"
+
+    # T_N = close_price
+    # T_N.name = "t_n"
+    # T_N1 = close_price.shift(-1)
+    # T_N1.name = "t_n1"
+    # T_N2 = close_price.shift(-2)
+    # T_N2.name = "t_n2"
 
     # T_N = close_price.shift(-1)
     # T_N.name = "t_n"
