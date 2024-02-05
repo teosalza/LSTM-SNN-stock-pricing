@@ -173,12 +173,14 @@ class LSTM_module(nn.Module):
 		self.hidden_size = hidden_size
 		self.device = device
 		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
+		self.dropout = nn.Dropout(0.1)
+
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		c_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
 		out,(h_n,c_n) = self.lstm1(x, (h_t, c_t))
-
+		out = self.dropout(out)
 		return out[:,-1,:]
 		# return out,h_n,h_n
 
@@ -213,7 +215,6 @@ class LSTM_GBRBM(nn.Module):
 			device=self.device
 			).to(device)
 
-		self.dropout = nn.Dropout(0.2)
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
@@ -280,7 +281,7 @@ class LSTM_GBRBM(nn.Module):
 
 	def forward(self,data):
 		data_lstm = self.lstm_layer(data)
-		data_lstm = self.dropout(data_lstm)
+		# data_lstm = self.dropout(data_lstm)
 		pred = self.gbrbm(data_lstm)
 		return pred
 

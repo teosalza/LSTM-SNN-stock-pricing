@@ -171,7 +171,7 @@ class GRU_module(nn.Module):
 		self.hidden_size = hidden_size
 		self.device = device
 		self.lstm1 = nn.GRU(self.input_size, self.hidden_size,batch_first=True).to(device)
-		self.dropout = nn.Dropout(0.1)
+		self.dropout = nn.Dropout(0.2)
 
 	def forward(self,x):
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
@@ -210,7 +210,7 @@ class GRU_GBRBM(nn.Module):
 			cd_step=cd_step,
 			device=self.device
 			).to(device)
-		self.dropout = nn.Dropout(0.2)
+		# self.dropout = nn.Dropout(0.2)
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
@@ -277,7 +277,7 @@ class GRU_GBRBM(nn.Module):
 
 	def forward(self,data):
 		data_lstm = self.lstm_layer(data)
-		data_lstm = self.dropout(data_lstm)
+		# data_lstm = self.dropout(data_lstm)
 		pred = self.gbrbm(data_lstm)
 		return pred
 

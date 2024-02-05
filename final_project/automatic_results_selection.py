@@ -3,6 +3,7 @@ from sklearn.preprocessing import StandardScaler
 from utils import create_window_dataset,split_train_test,split_train_test_valid,calculate_confusion_matrix
 import torch
 from torch import nn
+from lstm import LSTM
 from lstm_gbrbm import LSTM_GBRBM
 from gru_gbrbm import GRU_GBRBM
 from matplotlib import pyplot as plt
@@ -12,7 +13,8 @@ import numpy as np
 
 
 # MODEL ="lstm_gbrbm"
-MODEL ="gru_gbrbm"
+# MODEL ="gru_gbrbm"
+MODEL ="lstm"
 days = [5,15,20]
 hidden_sizes = [50,100,200]
 batch_sizes = [16,32]
@@ -67,6 +69,55 @@ for DSET_NAME in type_dataset:
 
                 actual_model = ""
 
+                if MODEL == "lstm":
+                    clipping = 10.0
+                    learning_rate_lstm = 1e-4
+                    learning_rate_gbrbm = 1e-3
+                    training_epochs = 50
+                    cd_step = 10
+                    batch_size = BATCH_SIZE
+                    k = 3
+                    input_size = 16 if "type1" in DSET_NAME else 9
+                    visible_size = HIDDEN_SIZE
+                    hidden_size = HIDDEN_SIZE 
+
+                    scheduler_annelling="cosine_anneling"
+
+
+                    model_lstm = LSTM_GBRBM(	
+                        input_size = input_size,
+                        visible_size = visible_size,
+                        hidden_size = hidden_size,
+                        optimizer = optimizer,
+                        criterion = criterion_loss,
+                        scheduler = scheduler_annelling,
+                        epoch = training_epochs,
+                        clipping = clipping,
+                        k = k,
+                        learning_rate_lstm = learning_rate_lstm,
+                        learning_rate_gbrbm = learning_rate_gbrbm,
+                        cd_step = cd_step,
+                        device = device)
+                    model_lstm.train(train_loader=train_loader,validation_loader=validation_loader)
+
+
+                    torch.save(model_lstm.state_dict(),"./final_project/lstm/{}/lstm_W{}_H{}_B{}.pt"
+                               .format(DSET_NAME.split("^N225_")[1].split(".")[0],WINDOW_SIZE,HIDDEN_SIZE,BATCH_SIZE))
+                    
+                    fig = plt.figure()
+                    plt.title("Train lstm_W{}_H{}_B{}"
+                               .format(DSET_NAME.split("^N225_")[1].split(".")[0],WINDOW_SIZE,HIDDEN_SIZE,BATCH_SIZE))
+                    ax1 = fig.add_subplot(211)
+                    ax2 = fig.add_subplot(212)
+
+                    ax1.title.set_text('Total error')
+                    ax1.plot(np.arange(len(model_lstm.loss)),model_lstm.loss)
+                    ax2.title.set_text('Validation Error')
+                    ax2.plot(np.arange(len(model_lstm.loss)),model_lstm.loss_valid)
+                    plt.savefig("./final_project/lstm/{}/train_error_W{}_H{}_B{}.png"
+                               .format(DSET_NAME.split("^N225_")[1].split(".")[0],WINDOW_SIZE,HIDDEN_SIZE,BATCH_SIZE))
+                    actual_model = model_lstm
+
                 if MODEL == "lstm_gbrbm":
                     clipping = 10.0
                     learning_rate_lstm = 1e-4
@@ -115,7 +166,7 @@ for DSET_NAME in type_dataset:
                     ax3.plot(np.arange(len(model_lstm_gbrbm.loss)),model_lstm_gbrbm.loss_valid)
                     plt.savefig("./final_project/lstm_gbrbm/{}/train_error_W{}_H{}_B{}.png"
                                .format(DSET_NAME.split("^N225_")[1].split(".")[0],WINDOW_SIZE,HIDDEN_SIZE,BATCH_SIZE))
-                    actual_model = model_lstm_gbrbm
+                    actual_model = model_lstm
                 
                 if MODEL == "gru_gbrbm":
                     clipping = 10.0
@@ -127,7 +178,7 @@ for DSET_NAME in type_dataset:
                     k = 3
                     input_size = 16 if "type1" in DSET_NAME else 9
                     visible_size = HIDDEN_SIZE
-                    hidden_size = int(HIDDEN_SIZE/2)
+                    hidden_size = int(HIDDEN_SIZE*2)
 
                     scheduler_annelling="cosine_anneling"
 
