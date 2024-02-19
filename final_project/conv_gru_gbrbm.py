@@ -27,6 +27,7 @@ class GBRBM(torch.nn.Module):
 		self.hidden_size = hidden_size
 		self.init_var = init_var
 		self.device=device
+		
 
 		
 		self.linear_layer = nn.Linear(hidden_size,1).to(self.device)
@@ -143,12 +144,10 @@ class GBRBM(torch.nn.Module):
 		v = mu + torch.randn_like(mu) * std
 
         # forward sampling
-		# prob_h = self.prob_h_given_v(data, var)
-		prob_h = self.prob_h_given_v(data, var)
-		# return self.linear_layer(prob_h)
+		prob_h = self.prob_h_given_v(v, var)
+		# return self.relu(self.linear_layer(prob_h))
 		# return self.linear_layer(self.dropout(prob_h))
 		return self.linear_layer(prob_h)
-		# return self.linear_layer1(self.linear_layer(prob_h))
 
 	def forward(self,data):
 		# samples,prob_h = self.Gibbs_sampling_vh(data,1,0)
@@ -159,33 +158,49 @@ class GBRBM(torch.nn.Module):
             # backward sampling
 		mu = self.prob_v_given_h(h).requires_grad_()
 		v = (mu + torch.randn_like(mu) * std).requires_grad_()
-	
+
         # forward sampling
-		# prob_h = self.prob_h_given_v(data, var).requires_grad_()
 		prob_h = self.prob_h_given_v(data, var).requires_grad_()
-		# return self.linear_layer(prob_h)
+		# return self.relu(self.linear_layer(prob_h))
+		# return self.linear_layer(self.dropout(prob_h))
 		return self.linear_layer(prob_h)
-		# return self.linear_layer1(self.linear_layer(prob_h))
 
 class GRU_module(nn.Module):
-	def __init__(self,input_size=10,hidden_size=500,drop=0.1,device="cpu"):
+	def __init__(self,input_size=10,hidden_size=500,win_size=5,device="cpu"):
 		super(GRU_module, self).__init__()
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.GRU(self.input_size, self.hidden_size,num_layers=1,batch_first=True).to(device)
-		self.dropout = nn.Dropout(drop)
+		self.win_size = win_size
+
+		self.conv1 = nn.Conv1d(in_channels=win_size,out_channels=64,kernel_size=3).to(device)
+		self.maxpool1 = nn.MaxPool1d(kernel_size=2).to(device)
+		self.drop1 = nn.Dropout(0.1).to(device)
+		self.batchNorm1 = nn.BatchNorm1d(num_features=64).to(device)
+
+		self.conv2 = nn.Conv1d(in_channels=64,out_channels=128,kernel_size=3).to(device)
+		self.maxpool2 = nn.MaxPool1d(kernel_size=2).to(device)
+		self.batchNorm2 = nn.BatchNorm1d(num_features=128).to(device)
+	
+		self.lstm1 = nn.GRU(2, self.hidden_size,batch_first=True).to(device)
+		# self.lstm1 = nn.GRU(self.input_size, self.hidden_size,batch_first=True).to(device)
 
 	def forward(self,x):
+		o1 = self.conv1(x)
+		o2 = self.maxpool1(o1)
+		o3 = self.drop1(o2)
+		o4 = self.batchNorm1(o3)
+		o5 = self.batchNorm2(self.drop1(self.maxpool2(self.conv2(o4))))
+
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
-		out,h_n = self.lstm1(x, h_t)
-		out = self.dropout(out)
+		out,h_n = self.lstm1(o5,h_t)
+
 		return out[:,-1,:]
 		# return out,h_n,h_n
 
-class GRU_GBRBM(nn.Module):
-	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,drop,device="cpu"):
-		super(GRU_GBRBM, self).__init__()
+class CONV_GRU_GBRBM(nn.Module):
+	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,device="cpu",drop=0.1,win_size=5):
+		super(CONV_GRU_GBRBM, self).__init__()
 		self.input_size = input_size
 		self.visible_size = visible_size
 		self.hidden_size = hidden_size
@@ -197,16 +212,19 @@ class GRU_GBRBM(nn.Module):
 		self.learning_rate_gbrbm = learning_rate_gbrbm
 		self.cd_step = cd_step
 		self.device=device
-		self.drop = drop
 		self.dot = ""
 		self.use_scheduler = False
+		self.drop = 0.1
+		self.win_size = win_size
+
+
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
 		self.lstm_layer = GRU_module(
 			input_size=self.input_size,
 			hidden_size=self.visible_size,
-			drop = self.drop,
-			device=self.device
+			device=self.device,
+			win_size=win_size
 			)
 
 		self.gbrbm = GBRBM(

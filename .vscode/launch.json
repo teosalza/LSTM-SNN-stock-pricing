@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args":["--ticker-name","^N225",   
+            "args":["--ticker-name","^GDAXI",   
                 "--start-interval-date","2007-01-23",
                 "--end-interval-date","2013-12-30",
                 "--output-dir", "./datasets/stock_prices/nikkei_225/"]

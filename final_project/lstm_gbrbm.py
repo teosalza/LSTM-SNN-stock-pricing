@@ -145,9 +145,10 @@ class GBRBM(torch.nn.Module):
 		v = mu + torch.randn_like(mu) * std
 
         # forward sampling
-		prob_h = self.prob_h_given_v(v, var)
+		prob_h = self.prob_h_given_v(data, var)
 		# return self.relu(self.linear_layer(prob_h))
-		return self.linear_layer(self.dropout(prob_h))
+		# return self.linear_layer(self.dropout(prob_h))
+		return self.linear_layer(prob_h)
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
 	def forward(self,data):
@@ -163,17 +164,18 @@ class GBRBM(torch.nn.Module):
         # forward sampling
 		prob_h = self.prob_h_given_v(data, var).requires_grad_()
 		# return self.relu(self.linear_layer(prob_h))
-		return self.linear_layer(self.dropout(prob_h))
+		# return self.linear_layer(self.dropout(prob_h))
+		return self.linear_layer(prob_h)
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
 class LSTM_module(nn.Module):
-	def __init__(self,input_size=10,hidden_size=500,device="cpu"):
+	def __init__(self,input_size=10,hidden_size=500,drop=0.1,device="cpu"):
 		super(LSTM_module, self).__init__()
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
-		self.dropout = nn.Dropout(0.1)
+		self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,num_layers=1,batch_first=True).to(device)
+		self.dropout = nn.Dropout(drop)
 
 
 	def forward(self,x):
@@ -185,7 +187,7 @@ class LSTM_module(nn.Module):
 		# return out,h_n,h_n
 
 class LSTM_GBRBM(nn.Module):
-	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,device="cpu"):
+	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,drop,device="cpu"):
 		super(LSTM_GBRBM, self).__init__()
 		self.input_size = input_size
 		self.visible_size = visible_size
@@ -198,6 +200,7 @@ class LSTM_GBRBM(nn.Module):
 		self.learning_rate_gbrbm = learning_rate_gbrbm
 		self.cd_step = cd_step
 		self.device=device
+		self.drop = drop
 		self.dot = ""
 		self.use_scheduler = False
 
@@ -205,6 +208,7 @@ class LSTM_GBRBM(nn.Module):
 		self.lstm_layer = LSTM_module(
 			input_size=self.input_size,
 			hidden_size=self.visible_size,
+			drop=self.drop,
 			device=self.device
 			)
 

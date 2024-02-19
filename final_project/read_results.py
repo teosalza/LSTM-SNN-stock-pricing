@@ -2,8 +2,9 @@ from os import listdir
 from os.path import isfile, join, isdir
 import pandas as pd
 import numpy as np 
-
-main_dir = "./final_project"
+ 
+main_dir = "/home/matteo/Desktop/dax_stock"
+# main_dir = "/home/matteo/Dropbox/Matteo Salzani/LSTM-SNN stock pricing MSc Thesis/final_project"
 
 only_main_dir = [f for f in listdir(main_dir) if isdir(join(main_dir, f))]
 
@@ -22,18 +23,24 @@ for dir in only_main_dir:
                 if "summary" not in file:
                     results = pd.read_excel(join(main_dir3,file))
                     vect_file = file.split("_")
-                    
                     #window size
 
                     results[vect_file[2][0]] = vect_file[2][1:]
                     #hidden size
                     results[vect_file[3][0]] = vect_file[3][1:]
+                    #vsize 
+                    results[vect_file[4][0]] = vect_file[4][1:]
+
                     #batch size
-                    results[vect_file[4][0]] = vect_file[4].split(".")[0][1:]
+                    if len(vect_file) == 6:
+                        results[vect_file[5][0]] = vect_file[5].split(".")[0][1:]
+                    else:
+                        results[vect_file[5][0]] = vect_file[5][1:]
+                        results[vect_file[6][0]] = vect_file[6].split(".")[0][1:]
+
 
                     dataframe_results = pd.concat([dataframe_results,results])
                     # print(np.round(np.array(results["accuracy2"],dtype=float),2)[0])
 
             dataframe_results.to_excel(join(main_dir3,folder_summary_results),index=False)
                 
-

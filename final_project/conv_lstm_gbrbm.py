@@ -11,8 +11,10 @@ import torch.nn.functional as F
 from torch.autograd import grad
 import pandas as pd
 import os
+from sklearn.model_selection import KFold
 import math
 from utils import create_window_dataset,split_train_test,split_train_test_valid
+from sklearn.decomposition import PCA
 
 
 
@@ -143,11 +145,10 @@ class GBRBM(torch.nn.Module):
 		v = mu + torch.randn_like(mu) * std
 
         # forward sampling
-		# prob_h = self.prob_h_given_v(data, var)
-		prob_h = self.prob_h_given_v(data, var)
-		# return self.linear_layer(prob_h)
-		# return self.linear_layer(self.dropout(prob_h))
+		prob_h = self.prob_h_given_v(v, var)
+		# return self.relu(self.linear_layer(prob_h))
 		return self.linear_layer(prob_h)
+		# return self.linear_layer(self.dropout(prob_h))
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
 	def forward(self,data):
@@ -159,33 +160,50 @@ class GBRBM(torch.nn.Module):
             # backward sampling
 		mu = self.prob_v_given_h(h).requires_grad_()
 		v = (mu + torch.randn_like(mu) * std).requires_grad_()
-	
+
         # forward sampling
-		# prob_h = self.prob_h_given_v(data, var).requires_grad_()
 		prob_h = self.prob_h_given_v(data, var).requires_grad_()
-		# return self.linear_layer(prob_h)
+		# return self.relu(self.linear_layer(prob_h))
 		return self.linear_layer(prob_h)
 		# return self.linear_layer1(self.linear_layer(prob_h))
 
-class GRU_module(nn.Module):
-	def __init__(self,input_size=10,hidden_size=500,drop=0.1,device="cpu"):
-		super(GRU_module, self).__init__()
+class LSTM_module(nn.Module):
+	def __init__(self,input_size=10,hidden_size=500,win_size=5,device="cpu"):
+		super(LSTM_module, self).__init__()
 		self.input_size = input_size
 		self.hidden_size = hidden_size
 		self.device = device
-		self.lstm1 = nn.GRU(self.input_size, self.hidden_size,num_layers=1,batch_first=True).to(device)
-		self.dropout = nn.Dropout(drop)
+		self.win_size = win_size
+
+		self.conv1 = nn.Conv1d(in_channels=win_size,out_channels=64,kernel_size=3).to(device)
+		self.maxpool1 = nn.MaxPool1d(kernel_size=2).to(device)
+		self.drop1 = nn.Dropout(0.1).to(device)
+		self.batchNorm1 = nn.BatchNorm1d(num_features=64).to(device)
+
+		self.conv2 = nn.Conv1d(in_channels=64,out_channels=128,kernel_size=3).to(device)
+		self.maxpool2 = nn.MaxPool1d(kernel_size=2).to(device)
+		self.batchNorm2 = nn.BatchNorm1d(num_features=128).to(device)
+
+		self.lstm1 = nn.LSTM(2, self.hidden_size,batch_first=True).to(device)
+		# self.lstm1 = nn.LSTM(self.input_size, self.hidden_size,batch_first=True).to(device)
 
 	def forward(self,x):
+		o1 = self.conv1(x)
+		o2 = self.maxpool1(o1)
+		o3 = self.drop1(o2)
+		o4 = self.batchNorm1(o3)
+		o5 = self.batchNorm2(self.drop1(self.maxpool2(self.conv2(o4))))
+
 		h_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
-		out,h_n = self.lstm1(x, h_t)
-		out = self.dropout(out)
+		c_t = torch.zeros(1, x.size(0), self.hidden_size, dtype=torch.float32, requires_grad=True).to(self.device)
+		out,(h_n,c_n) = self.lstm1(o5, (h_t, c_t))
+
 		return out[:,-1,:]
 		# return out,h_n,h_n
 
-class GRU_GBRBM(nn.Module):
-	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,drop,device="cpu"):
-		super(GRU_GBRBM, self).__init__()
+class CONV_LSTM_GBRBM(nn.Module):
+	def __init__(self,input_size,visible_size,hidden_size,optimizer,criterion,scheduler,epoch,clipping,k,learning_rate_lstm,learning_rate_gbrbm,cd_step,device="cpu",drop=0.1,win_size=5):
+		super(CONV_LSTM_GBRBM, self).__init__()
 		self.input_size = input_size
 		self.visible_size = visible_size
 		self.hidden_size = hidden_size
@@ -197,16 +215,17 @@ class GRU_GBRBM(nn.Module):
 		self.learning_rate_gbrbm = learning_rate_gbrbm
 		self.cd_step = cd_step
 		self.device=device
-		self.drop = drop
 		self.dot = ""
+		self.drop = 0.1
+		self.win_size = win_size
 		self.use_scheduler = False
 
 		# Setting lstm layer and Gaussian Binary Restricted Boltzmann Machine
-		self.lstm_layer = GRU_module(
+		self.lstm_layer = LSTM_module(
 			input_size=self.input_size,
 			hidden_size=self.visible_size,
-			drop = self.drop,
-			device=self.device
+			device=self.device,
+			win_size=self.win_size
 			)
 
 		self.gbrbm = GBRBM(
@@ -215,7 +234,8 @@ class GRU_GBRBM(nn.Module):
 			cd_step=cd_step,
 			device=self.device
 			).to(device)
-		# self.dropout = nn.Dropout(0.2)
+
+		self.dropout = nn.Dropout(drop)
 		#setting optimizer and learning_rate scheduler
 		self.optimizer_lstm = self.get_optimizer(optimizer,"lstm")
 		self.optimizer_gbrbm = self.get_optimizer(optimizer,"gbrbm")
@@ -235,7 +255,7 @@ class GRU_GBRBM(nn.Module):
 		self.gbrbm.eval()
 		return
 
-	def get_optimizer(self,optimizer_name,type):	
+	def get_optimizer(self,optimizer_name,type):
 		if optimizer_name=="adam":
 			if type == "lstm":
 				return torch.optim.Adam(self.lstm_layer.parameters(), lr=self.learning_rate_lstm,weight_decay=0.2)
@@ -289,11 +309,15 @@ class GRU_GBRBM(nn.Module):
 	def train_current_epoch(self,train_loader,validation_loader=None):
 		self.lstm_layer.train()
 		self.gbrbm.train()
+		# x_train = train_loader[0]
+		# y_train = train_loader[1]
 
 		loss_vet = []
 		loss_grb_vet = []
+		kfold =KFold(n_splits=10,shuffle=True)
 
 		for ii, (data,target)  in enumerate(train_loader):
+		# for train_index, test_index in kfold.split(x_train, y_train):  
 			self.optimizer_lstm.zero_grad()
 			self.optimizer_gbrbm.zero_grad()
 
@@ -305,6 +329,8 @@ class GRU_GBRBM(nn.Module):
 			# pred = pred[None,:]
 			linear_loss = self.criterion(pred,target)
 			loss_vet.append(linear_loss.item())
+
+			
 
 			# self.dot = make_dot(pred.mean(),params=dict(self.named_parameters()))
 
@@ -347,6 +373,8 @@ class GRU_GBRBM(nn.Module):
 			self.lstm_layer.eval()
 			self.gbrbm.eval()
 			with torch.no_grad():
+				list_val_y = []
+				list_target_y = []
 				for ii, (data,target)  in enumerate(validation_loader):
 					data = data.to(self.device)
 					target = target.to(self.device)
@@ -355,10 +383,16 @@ class GRU_GBRBM(nn.Module):
 					# pred = pred[None,:]
 					linear_loss = self.criterion(pred,target)
 					validation_error.append(linear_loss.item())
-					
 
+					for i in range(pred.shape[0]):
+						list_val_y.append(pred[i].to("cpu").numpy())
+						list_target_y.append(target[i].to("cpu").numpy())
+						
+					
+				# plt.plot(np.arange(len(list_val_y)),list_val_y)
+				# plt.plot(np.arange(len(list_val_y)),list_target_y)
+				# plt.show()
+					
 		validation_error = np.array(validation_error).mean()
 		return [np.array(loss_grb_vet).mean(),np.array(loss_vet).mean(),validation_error]
 		# return [recon_loss,linear_loss,validation_error]
-
-
