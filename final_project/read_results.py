@@ -3,7 +3,7 @@ from os.path import isfile, join, isdir
 import pandas as pd
 import numpy as np 
  
-main_dir = "/home/matteo/Desktop/dax_stock"
+main_dir = "/home/matteo/Desktop/shang_stock"
 # main_dir = "/home/matteo/Dropbox/Matteo Salzani/LSTM-SNN stock pricing MSc Thesis/final_project"
 
 only_main_dir = [f for f in listdir(main_dir) if isdir(join(main_dir, f))]

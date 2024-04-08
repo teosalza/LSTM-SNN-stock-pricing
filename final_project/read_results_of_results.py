@@ -3,7 +3,7 @@ from os.path import isfile, join, isdir
 import pandas as pd
 import numpy as np 
  
-main_dir = "/home/matteo/Desktop/dax_stock"
+main_dir = "/home/matteo/Desktop/dax-stock"
 final_results_file = "final_summary.xlsx"
 dict_results = {}
 

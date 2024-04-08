@@ -36,11 +36,11 @@ divs = ["per","div"]
 # type_dataset = ["./datasets/stock_prices/nikkei_225/^BVSP_type2.csv"]
 # type_dataset = ["./datasets/stock_prices/nikkei_225/^DJI_type1.csv","./datasets/stock_prices/nikkei_225/^DJI_type2.csv"]
 # type_dataset = ["./datasets/stock_prices/nikkei_225/FTSEMIB_type1.csv","./datasets/stock_prices/nikkei_225/FTSEMIB_type2.csv"]
-# type_dataset = ["./datasets/stock_prices/nikkei_225/SS_type1.csv","./datasets/stock_prices/nikkei_225/SS_type2.csv"]
-type_dataset = ["./datasets/stock_prices/nikkei_225/^GDAXI_type1.csv","./datasets/stock_prices/nikkei_225/^GDAXI_type2.csv"]
+type_dataset = ["./datasets/stock_prices/nikkei_225/SS_type1.csv","./datasets/stock_prices/nikkei_225/SS_type2.csv"]
+# type_dataset = ["./datasets/stock_prices/nikkei_225/^GDAXI_type1.csv","./datasets/stock_prices/nikkei_225/^GDAXI_type2.csv"]
 # type_dataset = ["./datasets/stock_prices/nikkei_225/^GSPC_type1.csv","./datasets/stock_prices/nikkei_225/^GSPC_type2.csv"]
 # type_dataset = ["./datasets/stock_prices/nikkei_225/FTSEMIB_type2.csv"]
-dset_name = "^GDAXI"
+dset_name = "SS"
 
 
 
